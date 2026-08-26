@@ -20,6 +20,11 @@ def _text(value, field):
         raise ValidationError({field: "This field is required."})
 
 
+def _validate_encryption_scheme(value):
+    if value not in FileObject.EncryptionScheme.values:
+        raise ValidationError({"encryption_scheme": "Unsupported encryption scheme."})
+
+
 def _audit(actor, event_type, entity, metadata=None):
     create_audit_event(
         actor=actor,
@@ -77,39 +82,6 @@ def deactivate_drawing(*, actor, drawing):
     return drawing
 
 
-def _file_object(
-    *, actor, stream, original_name, mime_type, encryption_scheme, storage
-):
-    stored = storage.store(stream, original_name)
-    try:
-        with transaction.atomic():
-            file_object = FileObject.objects.create(
-                storage_key=stored.storage_key,
-                original_name=original_name,
-                mime_type=mime_type
-                or mimetypes.guess_type(original_name)[0]
-                or "application/octet-stream",
-                size_bytes=stored.size_bytes,
-                sha256=stored.sha256,
-                encryption_scheme=encryption_scheme,
-                created_by=actor,
-            )
-            _audit(
-                actor,
-                "file_object.created",
-                file_object,
-                {
-                    "file_object_id": str(file_object.id),
-                    "sha256": stored.sha256,
-                    "size_bytes": stored.size_bytes,
-                },
-            )
-            return file_object
-    except Exception:
-        storage.remove_for_compensation(stored.storage_key)
-        raise
-
-
 def create_drawing_revision_with_file(
     *,
     actor,
@@ -124,6 +96,7 @@ def create_drawing_revision_with_file(
 ):
     require_action(actor, MANAGE)
     _text(revision_code, "revision_code")
+    _validate_encryption_scheme(encryption_scheme)
     storage = storage or drawing_storage()
     stored = storage.store(stream, original_name)
     try:
@@ -210,34 +183,52 @@ def replace_draft_revision_file(
     storage=None,
 ):
     require_action(actor, MANAGE)
+    _validate_encryption_scheme(encryption_scheme)
     storage = storage or drawing_storage()
-    with transaction.atomic():
-        locked = DrawingRevision.objects.select_for_update().get(pk=revision.pk)
-        if locked.status != DrawingRevision.Status.DRAFT:
-            raise ValidationError("Only draft revisions are editable.")
-    new_file = _file_object(
-        actor=actor,
-        stream=stream,
-        original_name=original_name,
-        mime_type=mime_type,
-        encryption_scheme=encryption_scheme,
-        storage=storage,
-    )
-    with transaction.atomic():
-        locked = DrawingRevision.objects.select_for_update().get(pk=revision.pk)
-        if locked.status != DrawingRevision.Status.DRAFT:
-            raise ValidationError("Only draft revisions are editable.")
-        old_id = locked.primary_file_id
-        locked.primary_file = new_file
-        locked.updated_by = actor
-        locked.save(update_fields=("primary_file", "updated_by", "updated_at"))
-        _audit(
-            actor,
-            "drawing_revision.file_replaced",
-            locked,
-            {"old_file_object_id": str(old_id), "file_object_id": str(new_file.id)},
-        )
-        return locked
+    stored = storage.store(stream, original_name)
+    try:
+        with transaction.atomic():
+            locked = DrawingRevision.objects.select_for_update().get(pk=revision.pk)
+            if locked.status != DrawingRevision.Status.DRAFT:
+                raise ValidationError("Only draft revisions are editable.")
+            new_file = FileObject.objects.create(
+                storage_key=stored.storage_key,
+                original_name=original_name,
+                mime_type=mime_type
+                or mimetypes.guess_type(original_name)[0]
+                or "application/octet-stream",
+                size_bytes=stored.size_bytes,
+                sha256=stored.sha256,
+                encryption_scheme=encryption_scheme,
+                created_by=actor,
+            )
+            _audit(
+                actor,
+                "file_object.created",
+                new_file,
+                {
+                    "file_object_id": str(new_file.id),
+                    "sha256": stored.sha256,
+                    "size_bytes": stored.size_bytes,
+                },
+            )
+            old_id = locked.primary_file_id
+            locked.primary_file = new_file
+            locked.updated_by = actor
+            locked.save(update_fields=("primary_file", "updated_by", "updated_at"))
+            _audit(
+                actor,
+                "drawing_revision.file_replaced",
+                locked,
+                {
+                    "old_file_object_id": str(old_id),
+                    "file_object_id": str(new_file.id),
+                },
+            )
+            return locked
+    except Exception:
+        storage.remove_for_compensation(stored.storage_key)
+        raise
 
 
 @transaction.atomic

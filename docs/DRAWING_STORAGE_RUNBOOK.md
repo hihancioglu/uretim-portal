@@ -6,7 +6,9 @@ Set `DRAWING_STORAGE_BACKEND=filesystem`, `DRAWING_STORAGE_ROOT=/data/drawings`,
 
 ## Ownership and Docker behavior
 
-Create the directory for the application UID/GID with read, write, and traverse permission for that identity only (typically mode `0700`; operational backup identities may receive separately controlled access). Compose mounts the persistent `drawing_data` volume only into web and worker at `/data/drawings`. Nginx does not mount or serve it. Object keys are application-generated UUID fan-out paths; client names never determine paths.
+The runtime image creates `/data/drawings` as root during image construction, assigns it to the non-root `app:app` identity, and applies mode `0700` before switching permanently to `USER app`. Docker initializes a new empty named volume from that image directory, preserving its ownership and mode. Compose mounts the persistent `drawing_data` volume only into web and worker at `/data/drawings`; neither process runs as root. Nginx does not mount or serve it. Object keys are application-generated UUID fan-out paths; client names never determine paths.
+
+CI creates a fresh named volume, starts the built image with its normal `app` user, asserts that the effective UID is non-root, writes and reads a private test object, removes that object, and removes the volume. Existing deployments whose volume ownership was changed manually must repair it once using an operator-controlled maintenance procedure; do not weaken directory permissions or run the application as root.
 
 ## Backup and restore
 

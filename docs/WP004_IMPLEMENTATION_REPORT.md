@@ -9,7 +9,7 @@
 - [x] Add explicit authorized services, audit events, private streaming access and inspection-only Admin.
 - [x] Add migrations, PostgreSQL-oriented tests, configuration and operational documentation.
 - [x] Verify formatting/static checks and the legacy boundary.
-- [ ] Obtain CI environment results for PostgreSQL migration/tests and Docker build.
+- [ ] Obtain green CI results for the FIX-001 hardening tests and private-volume smoke gate.
 
 ## Schema, indexes, and constraints
 
@@ -25,14 +25,19 @@ Mutations require `drawings.manage`. The streaming endpoint requires the existin
 
 Filesystem keys use `objects/<2>/<2>/<uuidhex>`, never names/business identifiers. Writes stream through a temporary file, calculate SHA-256/size, enforce extension/zero/size policy, fsync, and atomically finalize. The same private Compose volume is mounted to web/worker and never Nginx.
 
+The image bootstraps `/data/drawings` as mode `0700`, owned by the non-root `app:app` runtime identity, before `USER app`. Fresh named volumes inherit that directory metadata. CI now verifies the built image can write/read/remove an object through a fresh named volume while its effective UID remains non-root.
+
+Draft file replacement now uploads before acquiring the database lock, then creates FileObject metadata, changes the revision, and writes both audits in one transaction after a locked final DRAFT assertion. Any validation/database/audit failure rolls back all metadata/audits and compensates the new physical object. Service-created encryption metadata accepts only `NONE` and `LEGACY_AES_GCM`; no scheme is inferred and no cryptography is implemented.
+
 Events implemented: `drawing.created`, `drawing.updated`, `drawing.deactivated`, `file_object.created`, `drawing_revision.created`, `drawing_revision.updated_draft`, `drawing_revision.file_replaced`, `drawing_revision.activated`, `drawing_revision.superseded`, and `drawing_revision.withdrawn`. Events contain safe IDs/state/hash/size values and never roots, absolute paths, keys, secrets, or bytes.
 
 ## Verification result
 
 - `ruff format ...`: PASS.
 - `ruff check ...`: PASS.
-- Django migration drift/migrate/pytest: BLOCKED locally because Django dependencies are unavailable and the package index is inaccessible (`pip install -r requirements.lock` received HTTP tunnel 403). CI result pending.
-- Docker build: BLOCKED locally because Docker is unavailable. CI result pending.
+- Previous GitHub CI for the original WP-004 implementation: PASS. The new FIX-001 CI run is required before completion.
+- Django migration drift/migrate/pytest: BLOCKED locally because Django dependencies are unavailable and the package index is inaccessible (`pip install -r requirements.lock` received HTTP tunnel 403). FIX-001 CI result pending.
+- Docker build and fresh-volume non-root write/read/remove smoke gate: BLOCKED locally because Docker is unavailable. FIX-001 CI result pending.
 - `git diff -- legacy/`: PASS, empty.
 
 No PDF.js/rendering, crypto implementation, CAD parsing, control point, inspection, measurement, SPC/MSA, ticket, commissioning, or legacy import was introduced.
