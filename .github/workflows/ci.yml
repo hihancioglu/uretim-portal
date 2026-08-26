@@ -74,8 +74,35 @@ jobs:
         run: |
           container="uretim-portal-static-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           trap 'docker rm --force "$container" >/dev/null 2>&1 || true' EXIT
-          docker run --detach --name "$container" --publish 127.0.0.1::80 uretim-portal-static:ci
+          docker run --detach --name "$container" --add-host web:127.0.0.1 \
+            --publish 127.0.0.1::80 uretim-portal-static:ci
           port="$(docker port "$container" 80/tcp | sed 's/.*://')"
+          ready=0
+          for attempt in $(seq 1 20); do
+            if ! docker inspect --format '{{.State.Running}}' "$container" | grep -qx true; then
+              echo "Static-server container exited during startup"
+              docker logs "$container"
+              exit 1
+            fi
+            if curl --fail --silent \
+              "http://127.0.0.1:${port}/static/drawings/viewer.css" >/dev/null
+            then
+              ready=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$ready" != "1" ]; then
+            echo "Static-server did not become ready"
+            docker logs "$container"
+            exit 1
+          fi
+          if docker inspect --format '{{range .Mounts}}{{println .Destination}}{{end}}' \
+            "$container" | grep -Fxq /data/drawings
+          then
+            echo "Private drawing storage must not be mounted in static-server"
+            exit 1
+          fi
           for asset in \
             drawings/viewer.css \
             drawings/viewer.js \
@@ -84,8 +111,10 @@ jobs:
             vendor/pdfjs/6.2.108/LICENSE
           do
             headers="/tmp/$(basename "$asset").headers"
-            curl --fail --silent --show-error --retry 10 --retry-connrefused --dump-header "$headers" \
+            status="$(curl --fail --silent --show-error --dump-header "$headers" --write-out '%{http_code}' \
               --output "/tmp/$(basename "$asset")" "http://127.0.0.1:${port}/static/${asset}"
+            )"
+            test "$status" = "200"
             test -s "/tmp/$(basename "$asset")"
             if [[ "$asset" == *.mjs ]]; then
               grep -Eiq '^content-type: (text|application)/javascript' "$headers"
