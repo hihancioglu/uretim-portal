@@ -54,7 +54,9 @@ Acquisition happens at Docker build time only. Generated upstream distribution f
 
 ## Production static delivery
 
-The Docker `static-collector` stage runs Django `collectstatic`; `static-server` copies only that output to `/srv/static`; Nginx serves `/static/` locally. Nginx receives neither `drawing_data` nor `/data/drawings`. The runtime target remains the non-root application image. Compose builds the Nginx target, and CI starts it and checks the application stylesheet plus both PDF.js assets for successful, non-empty HTTP responses.
+The Docker `static-collector` stage runs Django `collectstatic` with the dedicated `config.settings.build` module, which imports base settings and supplies only the two harmless values base import requires. It deliberately does not import production settings or emulate production database, Redis, CSRF, or OIDC configuration. Production runtime continues to use `config.settings.production` and its complete required-environment fail-fast checks.
+
+`static-server` copies only collected output to `/srv/static`; Nginx serves `/static/` locally. Nginx receives neither `drawing_data` nor `/data/drawings`. The runtime target remains the non-root application image. Compose builds the Nginx target, and CI starts it and checks the application stylesheet plus both PDF.js assets for successful, non-empty HTTP responses.
 
 ## Viewer and WP-006 overlay contract
 

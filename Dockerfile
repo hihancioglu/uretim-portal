@@ -25,9 +25,7 @@ COPY --from=pdfjs-assets --chown=app:app \
     /pdfjs/node_modules/pdfjs-dist/build/pdf.worker.mjs \
     /pdfjs/node_modules/pdfjs-dist/LICENSE \
     /app/web/apps/drawings/static/vendor/pdfjs/6.2.108/
-RUN DJANGO_SETTINGS_MODULE=config.settings.production \
-    DJANGO_SECRET_KEY=build-only POSTGRES_PASSWORD=build-only \
-    DJANGO_ALLOWED_HOSTS=localhost DRAWING_STORAGE_ROOT=/data/drawings \
+RUN DJANGO_SETTINGS_MODULE=config.settings.build \
     python manage.py collectstatic --noinput
 
 FROM nginx:1.29.2-alpine AS static-server
