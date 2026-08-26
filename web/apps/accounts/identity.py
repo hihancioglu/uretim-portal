@@ -6,7 +6,10 @@ from django.utils import timezone
 from apps.audit.services import create_audit_event
 from .models import ExternalIdentity
 
-class IdentityDenied(Exception): pass
+class IdentityDenied(Exception):
+    def __init__(self, message, *, reason):
+        super().__init__(message)
+        self.reason = reason
 
 def _safe_subject(subject):
     return hashlib.sha256(subject.encode()).hexdigest()[:16]
@@ -14,22 +17,39 @@ def _safe_subject(subject):
 def _audit(event_type, issuer, subject, **metadata):
     create_audit_event(event_type=event_type, metadata={"issuer": issuer, "subject_fingerprint": _safe_subject(subject), **metadata})
 
-@transaction.atomic
 def resolve_oidc_identity(*, issuer, subject, claims, auto_provision=None):
-    if not issuer or not subject:
-        raise IdentityDenied("Missing validated issuer or subject")
+    """Resolve an OIDC identity, persisting denials outside rolled-back work."""
+    if not isinstance(issuer, str) or not issuer or not isinstance(subject, str) or not subject:
+        safe_issuer = issuer[:2048] if isinstance(issuer, str) else ""
+        safe_subject = subject if isinstance(subject, str) else ""
+        _audit("auth.oidc_login_denied", safe_issuer, safe_subject, reason="invalid_identity")
+        raise IdentityDenied("Missing validated issuer or subject", reason="invalid_identity")
+    try:
+        return _resolve_oidc_identity_transactionally(
+            issuer=issuer,
+            subject=subject,
+            claims=claims,
+            auto_provision=auto_provision,
+        )
+    except IdentityDenied as denied:
+        # This runs after the inner atomic block has rolled back. Keeping the
+        # denial in a separate transaction makes the security event durable.
+        _audit("auth.oidc_login_denied", issuer, subject, reason=denied.reason)
+        raise
+
+
+@transaction.atomic
+def _resolve_oidc_identity_transactionally(*, issuer, subject, claims, auto_provision):
     now = timezone.now()
     try:
         identity = ExternalIdentity.objects.select_related("user").get(issuer=issuer, subject=subject)
     except ExternalIdentity.DoesNotExist:
         enabled = settings.OIDC_AUTO_PROVISION if auto_provision is None else auto_provision
         if not enabled:
-            _audit("auth.oidc_login_denied", issuer, subject, reason="unknown_identity")
-            raise IdentityDenied("Unknown external identity")
+            raise IdentityDenied("Unknown external identity", reason="unknown_identity")
         return _provision(issuer, subject, claims, now)
     if not identity.user.is_active:
-        _audit("auth.oidc_login_denied", issuer, subject, reason="inactive_user")
-        raise IdentityDenied("Inactive user")
+        raise IdentityDenied("Inactive user", reason="inactive_user")
     identity.email_snapshot = claims.get("email", "")[:254]
     identity.preferred_username_snapshot = claims.get("preferred_username", "")[:150]
     identity.display_name_snapshot = claims.get("name", "")[:255]
@@ -43,8 +63,7 @@ def _provision(issuer, subject, claims, now):
     preferred = (claims.get("preferred_username") or "oidc-user").strip()[:120]
     email = (claims.get("email") or "").strip()
     if User.objects.filter(username__iexact=preferred).exists() or (email and User.objects.filter(email__iexact=email).exists()):
-        _audit("auth.oidc_login_denied", issuer, subject, reason="attribute_collision")
-        raise IdentityDenied("Ambiguous local attributes")
+        raise IdentityDenied("Ambiguous local attributes", reason="attribute_collision")
     suffix = hashlib.sha256(f"{issuer}|{subject}".encode()).hexdigest()[:12]
     username = f"{preferred}-{suffix}"[:150]
     user = User(username=username, email=email, first_name=(claims.get("given_name") or "")[:150], last_name=(claims.get("family_name") or "")[:150])

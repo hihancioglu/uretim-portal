@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
@@ -6,6 +8,7 @@ from apps.accounts.baseline import ROLE_ALIASES
 from apps.accounts.identity import IdentityDenied, resolve_oidc_identity
 from apps.accounts.models import ExternalIdentity, Role, ScopeGrant, UserRole
 from apps.accounts.seeding import seed_assignment_scopes, seed_authorization_baseline
+from apps.audit.models import AuditEvent
 
 pytestmark = pytest.mark.django_db
 
@@ -27,14 +30,24 @@ def test_known_identity_is_stable_when_email_changes():
 
 def test_inactive_and_unknown_are_denied():
     with pytest.raises(IdentityDenied): resolve_oidc_identity(issuer="https://issuer",subject="unknown",claims={},auto_provision=False)
+    assert AuditEvent.objects.filter(event_type="auth.oidc_login_denied", metadata__reason="unknown_identity").exists()
     account=user(active=False); ExternalIdentity.objects.create(user=account,issuer="https://issuer",subject="inactive",first_seen_at="2026-01-01T00:00Z",last_seen_at="2026-01-01T00:00Z")
     with pytest.raises(IdentityDenied): resolve_oidc_identity(issuer="https://issuer",subject="inactive",claims={})
+    assert AuditEvent.objects.filter(event_type="auth.oidc_login_denied", metadata__reason="inactive_user").exists()
 
 def test_provision_has_unusable_password_no_roles_and_collision_denied():
     account=resolve_oidc_identity(issuer="https://issuer",subject="new",claims={"preferred_username":"external","email":"new@example.com"},auto_provision=True)
     assert not account.has_usable_password() and not account.role_assignments.exists()
     user("collision").email="collision@example.com"; get_user_model().objects.filter(username="collision").update(email="collision@example.com")
     with pytest.raises(IdentityDenied): resolve_oidc_identity(issuer="https://issuer",subject="other",claims={"preferred_username":"other","email":"collision@example.com"},auto_provision=True)
+    assert AuditEvent.objects.filter(event_type="auth.oidc_login_denied", metadata__reason="attribute_collision").exists()
+
+def test_invalid_identity_denial_audit_is_persisted():
+    with pytest.raises(IdentityDenied):
+        resolve_oidc_identity(issuer="https://issuer", subject="", claims={})
+    event = AuditEvent.objects.get(event_type="auth.oidc_login_denied")
+    assert event.metadata["reason"] == "invalid_identity"
+    assert "claims" not in event.metadata
 
 @pytest.mark.parametrize(("role_code","allowed"), [("admin",True),("technical_drawing",True),("manager",False),("planning",False)])
 def test_drawing_manage_matrix(role_code, allowed):
@@ -69,3 +82,9 @@ def test_mechanism_context_rule_and_alias():
 def test_seed_idempotent():
     seed_authorization_baseline(); first=(Role.objects.count(),)
     seed_authorization_baseline(); assert (Role.objects.count(),) == first
+
+def test_historical_seed_migration_does_not_import_runtime_baseline():
+    migration = Path(__file__).parents[1] / "apps/accounts/migrations/0004_seed_authorization_baseline.py"
+    source = migration.read_text(encoding="utf-8")
+    assert "apps.accounts.baseline" not in source
+    assert '"manager": "Yönetici"' in source

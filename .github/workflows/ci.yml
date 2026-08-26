@@ -61,8 +61,8 @@ jobs:
       - name: Run tests
         run: pytest
       - name: Run legacy profiler tests
-        working-directory: .
+        working-directory: ${{ github.workspace }}
         run: python -m pytest tests/legacy_profiler
       - name: Build runtime image
-        working-directory: .
+        working-directory: ${{ github.workspace }}
         run: docker build --tag uretim-portal:ci .
