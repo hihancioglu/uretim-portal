@@ -38,3 +38,19 @@ git diff -- legacy/
 ```
 
 The `inspect ping` command requires a running worker. To verify import/start in isolation, run `timeout 10s docker compose run --rm worker celery -A config worker --loglevel=INFO` and expect timeout after the startup banner.
+
+## Dependency lock
+
+`requirements.in` is the short list of direct runtime and test requirements. The
+committed `requirements.lock` includes their complete, exactly pinned transitive
+closure. Regenerate it with Python 3.13 and pip-tools whenever an input changes:
+
+```bash
+python -m pip install pip-tools==7.5.2
+python -m piptools compile --resolver=backtracking --output-file=requirements.lock requirements.in
+python -m pip install --requirement requirements.lock
+```
+
+Runtime and test dependencies intentionally remain in one lock while the platform
+is small, avoiding a second resolution graph and keeping local, Docker, and CI
+installs identical.
