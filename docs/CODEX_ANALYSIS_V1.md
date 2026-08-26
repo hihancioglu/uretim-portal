@@ -1,7 +1,8 @@
+ihancioglu@baylan-portainer:~/uretim-portal$ cat docs/CODEX_ANALYSIS_V1.md
 # A Blok Kalite Kontrol — Codex Analizi v1
 
-**Tarih:** 26.08.2026  
-**Kapsam:** Statik repository/doküman/VB.NET kaynak kod analizi  
+**Tarih:** 26.08.2026
+**Kapsam:** Statik repository/doküman/VB.NET kaynak kod analizi
 **Değişiklik türü:** Yalnız analiz; uygulama kodu, Django modeli, migration ve legacy kaynak değişikliği yoktur.
 
 ## 0. Okuma yöntemi ve sınırlar
