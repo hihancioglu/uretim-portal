@@ -37,3 +37,12 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+if OIDC_ENABLED:  # noqa: F405
+    oidc_required = ("OIDC_ISSUER_URL", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "OIDC_REDIRECT_URI")
+    oidc_missing = [name for name in oidc_required if not os.environ.get(name, "").strip()]
+    if oidc_missing:
+        raise RuntimeError("Missing required OIDC environment variables: " + ", ".join(oidc_missing))
+    for name in ("OIDC_ISSUER_URL", "OIDC_REDIRECT_URI"):
+        if not os.environ[name].startswith("https://"):
+            raise RuntimeError(f"{name} must use HTTPS in production")

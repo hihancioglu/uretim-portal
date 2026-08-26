@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "mozilla_django_oidc",
     "apps.accounts",
     "apps.audit",
     "apps.core",
@@ -74,3 +75,17 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": os.getenv("DJANGO_LOG_LEVEL", "INFO")},
 }
 
+
+OIDC_ENABLED = os.getenv("OIDC_ENABLED", "false").lower() == "true"
+OIDC_AUTO_PROVISION = os.getenv("OIDC_AUTO_PROVISION", "false").lower() == "true"
+OIDC_ISSUER_URL = os.getenv("OIDC_ISSUER_URL", "")
+OIDC_RP_CLIENT_ID = os.getenv("OIDC_CLIENT_ID", "")
+OIDC_RP_CLIENT_SECRET = os.getenv("OIDC_CLIENT_SECRET", "")
+OIDC_OP_DISCOVERY_ENDPOINT = f"{OIDC_ISSUER_URL.rstrip('/')}/.well-known/openid-configuration" if OIDC_ISSUER_URL else ""
+OIDC_RP_SCOPES = "openid profile email"
+OIDC_USE_NONCE = True
+OIDC_VERIFY_SSL = True
+OIDC_POST_LOGOUT_REDIRECT_URI = os.getenv("OIDC_POST_LOGOUT_REDIRECT_URI", "/")
+LOGIN_REDIRECT_URL = "/"
+LOGIN_URL = "/login/"
+AUTHENTICATION_BACKENDS = ["apps.accounts.oidc.AuthentikOIDCBackend"]
