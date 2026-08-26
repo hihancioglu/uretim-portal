@@ -27,6 +27,7 @@ from apps.drawings.services import (
 from apps.products.models import Product
 
 pytestmark = pytest.mark.django_db
+TEST_AUTH_BACKEND = "django.contrib.auth.backends.ModelBackend"
 
 
 @pytest.fixture
@@ -264,10 +265,15 @@ def _role_user(username, role_code):
     return user
 
 
+def _force_test_login(client, user):
+    client.force_login(user, backend=TEST_AUTH_BACKEND)
+
+
 def test_private_file_endpoint_authorization_scope_and_headers(
     client, manager, product, tmp_path, settings
 ):
     settings.DRAWING_STORAGE_ROOT = str(tmp_path)
+    settings.AUTHENTICATION_BACKENDS = [TEST_AUTH_BACKEND]
     storage = FilesystemStorage(tmp_path, 1000)
     drawing = create_drawing(actor=manager, product=product, scope="PLASTIC")
     revision = create_drawing_revision_with_file(
@@ -282,18 +288,18 @@ def test_private_file_endpoint_authorization_scope_and_headers(
     assert client.get(url).status_code == 403
     seed_authorization_baseline()
     no_role = User.objects.create_user(username="no-role")
-    client.force_login(no_role)
+    _force_test_login(client, no_role)
     assert client.get(url).status_code == 403
     wrong_scope = _role_user("incoming", "incoming_quality")
-    client.force_login(wrong_scope)
+    _force_test_login(client, wrong_scope)
     assert client.get(url).status_code == 403
     scoped_reader = _role_user("plastic-reader", "plastic_quality")
-    client.force_login(scoped_reader)
+    _force_test_login(client, scoped_reader)
     response = client.get(url)
     assert response.status_code == 200
     assert b"".join(response.streaming_content) == b"exact private bytes"
     broad_reader = _role_user("manager-reader", "manager")
-    client.force_login(broad_reader)
+    _force_test_login(client, broad_reader)
     response = client.get(url)
     assert response.status_code == 200
     assert b"".join(response.streaming_content) == b"exact private bytes"
@@ -312,6 +318,7 @@ def test_private_file_endpoint_returns_404_for_missing_object(
     client, manager, product, tmp_path, settings
 ):
     settings.DRAWING_STORAGE_ROOT = str(tmp_path)
+    settings.AUTHENTICATION_BACKENDS = [TEST_AUTH_BACKEND]
     storage = FilesystemStorage(tmp_path, 1000)
     drawing = create_drawing(actor=manager, product=product, scope="TR")
     revision = create_drawing_revision_with_file(
@@ -323,7 +330,7 @@ def test_private_file_endpoint_returns_404_for_missing_object(
         storage=storage,
     )
     storage.remove_for_compensation(revision.primary_file.storage_key)
-    client.force_login(manager)
+    _force_test_login(client, manager)
     assert (
         client.get(reverse("drawings:revision-file", args=[revision.id])).status_code
         == 404

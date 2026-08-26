@@ -9,7 +9,7 @@
 - [x] Add explicit authorized services, audit events, private streaming access and inspection-only Admin.
 - [x] Add migrations, PostgreSQL-oriented tests, configuration and operational documentation.
 - [x] Verify formatting/static checks and the legacy boundary.
-- [ ] Obtain green CI results for the FIX-001 hardening tests and private-volume smoke gate.
+- [ ] Obtain green CI results for the FIX-002 authentication-isolation correction and private-volume smoke gate.
 
 ## Schema, indexes, and constraints
 
@@ -35,9 +35,9 @@ Events implemented: `drawing.created`, `drawing.updated`, `drawing.deactivated`,
 
 - `ruff format ...`: PASS.
 - `ruff check ...`: PASS.
-- Previous GitHub CI for the original WP-004 implementation: PASS. The new FIX-001 CI run is required before completion.
-- Django migration drift/migrate/pytest: BLOCKED locally because Django dependencies are unavailable and the package index is inaccessible (`pip install -r requirements.lock` received HTTP tunnel 403). FIX-001 CI result pending.
-- Docker build and fresh-volume non-root write/read/remove smoke gate: BLOCKED locally because Docker is unavailable. FIX-001 CI result pending.
+- GitHub CI #22 reached the full pytest suite: 69 collected, 67 passed, and 2 endpoint tests failed because `Client.force_login()` implicitly instantiated the production-only OIDC backend without its token endpoint setting. The endpoint tests now override authentication to Django's `ModelBackend` only within those tests and pass that backend explicitly to every `force_login()` call; production OIDC settings and behavior are unchanged.
+- Django migration drift/migrate/full pytest: BLOCKED locally because Django dependencies are unavailable and the package index is inaccessible (`pip install -r requirements.lock` received HTTP tunnel 403). The FIX-002 CI result is pending.
+- Docker build and fresh-volume non-root write/read/remove smoke gate: not executed by CI #22 because pytest failed first, and BLOCKED locally because Docker is unavailable. The FIX-002 CI result is pending.
 - `git diff -- legacy/`: PASS, empty.
 
 No PDF.js/rendering, crypto implementation, CAD parsing, control point, inspection, measurement, SPC/MSA, ticket, commissioning, or legacy import was introduced.
