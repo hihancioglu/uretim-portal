@@ -1,0 +1,13 @@
+.git
+.github
+.env
+legacy/
+docs/
+Data/
+Backups/
+__pycache__/
+.pytest_cache/
+*.pyc
+.coverage
+htmlcov/
+staticfiles/

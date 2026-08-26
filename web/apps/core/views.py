@@ -13,13 +13,17 @@ def ready(_request):
         checks["postgresql"] = connection.is_usable()
     except Exception:
         checks["postgresql"] = False
-    client = Redis.from_url(settings.REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
+    client = None
     try:
+        client = Redis.from_url(settings.REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
         checks["redis"] = bool(client.ping())
     except Exception:
         checks["redis"] = False
     finally:
-        client.close()
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                checks["redis"] = False
     healthy = all(checks.values())
     return JsonResponse({"status": "ok" if healthy else "unavailable", "checks": checks}, status=200 if healthy else 503)
-
