@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>REWORK DASHBOARD</title>
+  <script src="vendor/chart-4.4.1.umd.min.js"></script>
+  <style>
+    :root{--navy:#123f67;--blue:#2d78ad;--line:#c9dbea;--soft:#edf5fb;--bg:#f1f6fb;--green:#167048;--orange:#e69b36;--red:#c74848;--text:#173957;--muted:#668099}
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;font-family:"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text)}
+    body{padding:12px}
+    .page{display:flex;flex-direction:column;gap:12px;min-width:0}
+    .hero{background:linear-gradient(110deg,#174b75,#2d78a5);color:#fff;border-radius:12px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;gap:20px}
+    .hero h1{font-size:24px;line-height:1.2;margin:0 0 5px}.hero p{margin:0;font-size:12px;opacity:.9}
+    .source{text-align:right;font-size:11px;line-height:1.55;max-width:48%;word-break:break-word}
+    .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:13px;min-width:0;overflow:hidden}
+    .section-title{font-size:15px;font-weight:700;color:var(--navy);margin:0 0 3px}.section-subtitle{font-size:10px;color:var(--muted);margin:0 0 12px}
+    .filters{display:grid;grid-template-columns:repeat(6,minmax(125px,1fr)) 90px;gap:9px;align-items:end}
+    label{display:block;font-size:10px;font-weight:700;color:#496984;margin-bottom:4px}
+    select,input,button{width:100%;height:32px;border:1px solid #b8ccdd;border-radius:4px;background:#fff;color:var(--text);font:11px "Segoe UI",Arial,sans-serif;padding:0 8px}
+    button{font-weight:700;cursor:pointer;color:var(--navy)}button:hover{background:var(--soft)}
+    .notice{display:none;padding:12px 14px;border-radius:7px;background:#fff7df;border:1px solid #e8c56e;color:#714f00;font-size:12px}
+    .kpis{display:grid;grid-template-columns:repeat(6,minmax(135px,1fr));gap:10px}
+    .kpi{background:#fff;border:1px solid var(--line);border-top:4px solid #2e709b;border-radius:9px;padding:12px;min-height:90px}
+    .kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;color:#5d7891;letter-spacing:.25px}.kpi-value{font-size:22px;font-weight:750;color:#0d385d;margin-top:7px;line-height:1}.kpi-note{font-size:9px;color:#748da3;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .chart-wrap{position:relative;width:100%;height:390px}.chart-wrap.compact{height:330px}
+    .tour-pivot-row{display:grid;grid-template-columns:minmax(0,35fr) minmax(0,65fr);gap:12px;align-items:stretch;min-width:0}
+    .tour-pivot-panel{min-width:0}.tour-pivot-panel+.tour-pivot-panel{border-left:1px solid var(--line);padding-left:12px}
+    .table-wrap{max-width:100%;max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+    table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:10px}th,td{border-right:1px solid #d4e1ec;border-bottom:1px solid #d4e1ec;padding:7px 8px;vertical-align:top;overflow-wrap:anywhere;white-space:normal}th{position:sticky;top:0;z-index:2;background:#dceaf5;color:#0d385d;text-align:left;font-weight:700}td.num,th.num{text-align:right}tbody tr:nth-child(even){background:#f6f9fc}tbody tr:hover{background:#eaf3fa}.total-row{font-weight:700;background:#dceaf5!important}
+    .empty{padding:35px;text-align:center;color:var(--muted);font-size:12px}
+    @media(max-width:1400px){.filters{grid-template-columns:repeat(4,minmax(130px,1fr))}.kpis{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:1100px){.tour-pivot-row{grid-template-columns:1fr}.tour-pivot-panel+.tour-pivot-panel{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:12px}}
+    @media(max-width:800px){body{padding:7px}.hero{align-items:flex-start;flex-direction:column}.source{text-align:left;max-width:100%}.filters{grid-template-columns:repeat(2,1fr)}.kpis{grid-template-columns:repeat(2,1fr)}.chart-wrap{height:320px}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div><h1>REWORK DASHBOARD</h1><p>Yeniden işleme miktarı, iş merkezi, malzeme ve operasyon analizi</p></div>
+      <div class="source" id="sourceInfo">Excel yüklenmesi bekleniyor.</div>
+    </header>
+
+    <div class="notice" id="notice"></div>
+
+    <section class="card">
+      <h2 class="section-title">Filtreler</h2><p class="section-subtitle">Tüm grafik, KPI ve tablolar seçime göre birlikte güncellenir.</p>
+      <div class="filters">
+        <div><label for="dateFrom">Başlangıç</label><input id="dateFrom" type="date"></div>
+        <div><label for="dateTo">Bitiş</label><input id="dateTo" type="date"></div>
+        <div><label for="workCenter">İş Merkezi</label><select id="workCenter"></select></div>
+        <div><label for="material">Malzeme</label><select id="material"></select></div>
+        <div><label for="operation">Operasyon</label><select id="operation"></select></div>
+        <div><label for="tour">Tur Şablonu</label><select id="tour"></select></div>
+        <div><label>&nbsp;</label><button id="resetFilters">Sıfırla</button></div>
+      </div>
+    </section>
+
+    <section class="kpis">
+      <div class="kpi"><div class="kpi-label">Toplam Rework</div><div class="kpi-value" id="kpiTotal">0 adet</div><div class="kpi-note" id="kpiTotalNote">0 kayıt</div></div>
+      <div class="kpi"><div class="kpi-label">Malzeme</div><div class="kpi-value" id="kpiMaterials">0 adet</div><div class="kpi-note">Rework görülen farklı malzeme</div></div>
+      <div class="kpi"><div class="kpi-label">İş Merkezi</div><div class="kpi-value" id="kpiCenters">0 adet</div><div class="kpi-note">Rework görülen farklı merkez</div></div>
+      <div class="kpi"><div class="kpi-label">Operasyon</div><div class="kpi-value" id="kpiOperations">0 adet</div><div class="kpi-note">Farklı operasyon açıklaması</div></div>
+      <div class="kpi"><div class="kpi-label">Aylık Ortalama</div><div class="kpi-value" id="kpiMonthly">0 adet</div><div class="kpi-note" id="kpiMonthlyNote">0 aylık dönem</div></div>
+      <div class="kpi"><div class="kpi-label">En Yüksek İş Merkezi</div><div class="kpi-value" id="kpiTopCenter">—</div><div class="kpi-note" id="kpiTopCenterNote">0 adet</div></div>
+    </section>
+
+    <section class="card"><h2 class="section-title">Aylık Rework Eğilimi</h2><p class="section-subtitle">Aylık rework miktarının İş Merkezlerine göre renkli ve yığılmış dağılımı (adet)</p><div class="chart-wrap"><canvas id="monthlyChart"></canvas></div></section>
+    <section class="card"><h2 class="section-title">İş Merkezi Pareto</h2><p class="section-subtitle">İş Merkezine göre operasyon dağılımı, toplam rework miktarı ve kümülatif pay</p><div class="chart-wrap"><canvas id="centerPareto"></canvas></div></section>
+    <section class="card"><h2 class="section-title">İş Merkezi × Operasyon Pivot</h2><p class="section-subtitle">İş merkezleri ile en yüksek ilk 10 operasyonun rework miktarı (adet)</p><div class="table-wrap" id="centerOperationTable"></div></section>
+    <section class="card"><h2 class="section-title">Operasyon Pareto</h2><p class="section-subtitle">Operasyon açıklamasına göre İş Merkezi dağılımı, toplam rework miktarı ve kümülatif pay</p><div class="chart-wrap"><canvas id="operationPareto"></canvas></div></section>
+    <section class="card"><h2 class="section-title">Malzeme × Ay × Rework</h2><p class="section-subtitle">En yüksek rework miktarına sahip ilk 10 malzemenin aylık dağılımı</p><div class="chart-wrap"><canvas id="materialMonthChart"></canvas></div></section>
+    <section class="card">
+      <div class="tour-pivot-row">
+        <div class="tour-pivot-panel"><h2 class="section-title">Tur Şablonu Dağılımı</h2><p class="section-subtitle">Tur Şablonu boş olduğunda Malzeme Açıklaması kullanılarak toplam rework miktarı</p><div class="chart-wrap compact"><canvas id="tourChart"></canvas></div></div>
+        <div class="tour-pivot-panel"><h2 class="section-title">Malzeme × İş Merkezi Pivot</h2><p class="section-subtitle">En yüksek ilk 25 malzemenin iş merkezi dağılımı (adet)</p><div class="table-wrap" id="materialCenterTable"></div></div>
+      </div>
+    </section>
+
+    <section class="card"><h2 class="section-title">Aylık Pivot</h2><p class="section-subtitle">Ay bazında miktar, kayıt ve toplam içindeki pay</p><div class="table-wrap" id="monthlyTable"></div></section>
+  </main>
+
+  <script>
+    const trNumber = new Intl.NumberFormat('tr-TR',{maximumFractionDigits:2});
+    const trPercent = new Intl.NumberFormat('tr-TR',{minimumFractionDigits:1,maximumFractionDigits:1});
+    const palette=['#4292c6','#ed7aa1','#f5a35c','#55b8b3','#9b84d2','#e4bc55','#6f9f68','#c96b6b','#67a6d8','#af7f5c','#6a9fa1','#d486ad'];
+    const charts={}; let allRecords=[]; let currentState=null;
+    Chart.defaults.font.family='Segoe UI, Arial, sans-serif'; Chart.defaults.color='#536b80';
+
+    const el=id=>document.getElementById(id);
+    const esc=value=>String(value??'').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+    const amount=value=>trNumber.format(Number(value)||0);
+    const shorten=(value,maxLength=32)=>{const text=String(value??'');return text.length>maxLength?`${text.slice(0,maxLength-1)}…`:text};
+    const monthOf=value=>String(value||'').slice(0,7);
+    const unique=values=>[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+    const sum=rows=>rows.reduce((total,row)=>total+(Number(row.completedQuantity)||0),0);
+    const aggregate=(rows,keySelector)=>{const map=new Map();rows.forEach(row=>{const key=keySelector(row)||'Tanımsız';map.set(key,(map.get(key)||0)+(Number(row.completedQuantity)||0));});return map};
+    const sortedEntries=map=>[...map.entries()].sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(String(b[0]),'tr'));
+
+    function destroyChart(name){if(charts[name]){charts[name].destroy();delete charts[name]}}
+    function setSelect(id,values,label,textSelector=value=>value){const select=el(id);const previous=select.value;select.innerHTML=`<option value="">${esc(label)}</option>`+values.map(value=>`<option value="${esc(value)}">${esc(textSelector(value))}</option>`).join('');if(values.includes(previous))select.value=previous}
+    function hydrateFilters(){
+      const dates=allRecords.map(r=>r.operationDate).filter(Boolean).sort();el('dateFrom').value=dates[0]||'';el('dateTo').value=dates.at(-1)||'';
+      setSelect('workCenter',unique(allRecords.map(r=>r.workCenter)),'Tümü',value=>{const row=allRecords.find(r=>r.workCenter===value&&r.workCenterDescription)||allRecords.find(r=>r.workCenter===value);return row?centerLabel(row):value});
+      setSelect('material',unique(allRecords.map(r=>r.materialDescription)),'Tümü');
+      setSelect('operation',unique(allRecords.map(r=>r.operationDescription)),'Tümü');
+      setSelect('tour',unique(allRecords.map(r=>r.tourTemplate)),'Tümü');
+    }
+    function filteredRecords(){const from=el('dateFrom').value,to=el('dateTo').value,center=el('workCenter').value,material=el('material').value,operation=el('operation').value,tour=el('tour').value;return allRecords.filter(r=>(!from||r.operationDate>=from)&&(!to||r.operationDate<=to)&&(!center||r.workCenter===center)&&(!material||r.materialDescription===material)&&(!operation||r.operationDescription===operation)&&(!tour||r.tourTemplate===tour))}
+
+    function render(){const rows=filteredRecords();renderKpis(rows);renderMonthly(rows);renderCenterPareto(rows);renderOperationPareto(rows);renderMaterialMonth(rows);renderTour(rows);renderMonthlyTable(rows);renderCenterOperationTable(rows);renderMaterialCenterTable(rows)}
+    const centerLabel=row=>row.workCenterDescription?`${row.workCenter} — ${row.workCenterDescription}`:row.workCenter;
+
+    function renderKpis(rows){const total=sum(rows),months=unique(rows.map(r=>monthOf(r.operationDate))),centers=aggregate(rows,r=>centerLabel(r)),top=sortedEntries(centers)[0];el('kpiTotal').textContent=`${amount(total)} adet`;el('kpiTotalNote').textContent=`${amount(rows.length)} kayıt`;el('kpiMaterials').textContent=`${amount(unique(rows.map(r=>r.materialDescription)).length)} adet`;el('kpiCenters').textContent=`${amount(unique(rows.map(r=>r.workCenter)).length)} adet`;el('kpiOperations').textContent=`${amount(unique(rows.map(r=>r.operationDescription)).length)} adet`;el('kpiMonthly').textContent=`${amount(months.length?total/months.length:0)} adet`;el('kpiMonthlyNote').textContent=`${months.length} aylık dönem`;el('kpiTopCenter').textContent=top?top[0].split(' — ')[0]:'—';el('kpiTopCenterNote').textContent=top?`${amount(top[1])} adet`:'0 adet'}
+
+    function renderMonthly(rows){
+      destroyChart('monthly');
+      const months=unique(rows.map(r=>monthOf(r.operationDate)));
+      const centers=sortedEntries(aggregate(rows,r=>r.workCenter)).map(entry=>entry[0]);
+      const monthlyCenterTotals=new Map();
+      const centerLabels=new Map();
+      rows.forEach(row=>{
+        const key=`${monthOf(row.operationDate)}\u0000${row.workCenter}`;
+        monthlyCenterTotals.set(key,(monthlyCenterTotals.get(key)||0)+(Number(row.completedQuantity)||0));
+        if(!centerLabels.has(row.workCenter)||(centerLabels.get(row.workCenter)===row.workCenter&&row.workCenterDescription))centerLabels.set(row.workCenter,centerLabel(row));
+      });
+      const datasets=centers.map((center,index)=>({
+        label:centerLabels.get(center)||center,
+        data:months.map(month=>monthlyCenterTotals.get(`${month}\u0000${center}`)||0),
+        backgroundColor:palette[index%palette.length],
+        borderColor:'#ffffff',
+        borderWidth:1
+      }));
+      const options=chartOptions('Miktar (adet)');
+      options.plugins.tooltip.filter=context=>Number(context.parsed.y??context.parsed)!==0;
+      options.scales.x.stacked=true;
+      options.scales.y.stacked=true;
+      charts.monthly=new Chart(el('monthlyChart'),{type:'bar',data:{labels:months,datasets},options});
+    }
+    function chartOptions(axisTitle){return{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${amount(ctx.parsed.y??ctx.parsed)}`}}},scales:{x:{grid:{color:'rgba(80,105,125,.13)'},ticks:{maxRotation:45,minRotation:0}},y:{beginAtZero:true,title:{display:true,text:axisTitle},grid:{color:'rgba(80,105,125,.13)'},ticks:{callback:value=>amount(value)}}}}}
+    function renderCenterPareto(rows){
+      destroyChart('centerPareto');
+      const centers=sortedEntries(aggregate(rows,r=>centerLabel(r))).slice(0,20);
+      const centerNames=centers.map(entry=>entry[0]);
+      const topOperations=sortedEntries(aggregate(rows,r=>r.operationDescription)).slice(0,10).map(entry=>entry[0]);
+      const operationSet=new Set(topOperations);
+      const centerOperationTotals=new Map();
+      rows.forEach(row=>{
+        const key=`${centerLabel(row)}\u0000${row.operationDescription}`;
+        centerOperationTotals.set(key,(centerOperationTotals.get(key)||0)+(Number(row.completedQuantity)||0));
+      });
+      const barDatasets=topOperations.map((operation,index)=>({
+        type:'bar',
+        label:operation,
+        data:centerNames.map(center=>centerOperationTotals.get(`${center}\u0000${operation}`)||0),
+        backgroundColor:palette[index%palette.length],
+        borderColor:'#ffffff',
+        borderWidth:1,
+        stack:'rework',
+        order:2,
+        yAxisID:'y'
+      }));
+      const otherValues=centerNames.map(center=>sum(rows.filter(row=>centerLabel(row)===center&&!operationSet.has(row.operationDescription))));
+      if(otherValues.some(value=>value>0))barDatasets.push({type:'bar',label:'Diğer Operasyonlar',data:otherValues,backgroundColor:'#aab7c2',borderColor:'#ffffff',borderWidth:1,stack:'rework',order:2,yAxisID:'y'});
+      const total=centers.reduce((sum,entry)=>sum+entry[1],0);
+      let running=0;
+      const cumulative=centers.map(entry=>{running+=entry[1];return total?running/total*100:0});
+      const cumulativeDataset={type:'line',label:'Kümülatif %',data:cumulative,borderColor:'#173f5f',backgroundColor:'#173f5f',pointRadius:3,borderWidth:2,order:0,yAxisID:'y1'};
+      charts.centerPareto=new Chart(el('centerPareto'),{
+        data:{labels:centerNames,datasets:[...barDatasets,cumulativeDataset]},
+        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{filter:ctx=>ctx.dataset.yAxisID==='y1'||Number(ctx.parsed.y)!==0,callbacks:{label:ctx=>ctx.dataset.yAxisID==='y1'?`${ctx.dataset.label}: %${trPercent.format(ctx.parsed.y)}`:`${ctx.dataset.label}: ${amount(ctx.parsed.y)} adet`}}},scales:{x:{stacked:true,ticks:{maxRotation:35,minRotation:0}},y:{stacked:true,beginAtZero:true,title:{display:true,text:'Miktar (adet)'},ticks:{callback:value=>amount(value)}},y1:{beginAtZero:true,max:100,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Kümülatif %'},ticks:{callback:value=>`%${value}`}}}}
+      });
+    }
+    function renderOperationPareto(rows){
+      destroyChart('operationPareto');
+      const operations=sortedEntries(aggregate(rows,r=>r.operationDescription)).slice(0,20);
+      const operationNames=operations.map(entry=>entry[0]);
+      const centers=sortedEntries(aggregate(rows,r=>centerLabel(r))).map(entry=>entry[0]);
+      const operationCenterTotals=new Map();
+      rows.forEach(row=>{
+        const key=`${row.operationDescription}\u0000${centerLabel(row)}`;
+        operationCenterTotals.set(key,(operationCenterTotals.get(key)||0)+(Number(row.completedQuantity)||0));
+      });
+      const barDatasets=centers.map((center,index)=>({
+        type:'bar',
+        label:center,
+        data:operationNames.map(operation=>operationCenterTotals.get(`${operation}\u0000${center}`)||0),
+        backgroundColor:palette[index%palette.length],
+        borderColor:'#ffffff',
+        borderWidth:1,
+        stack:'rework',
+        order:2,
+        yAxisID:'y'
+      }));
+      const total=operations.reduce((sum,entry)=>sum+entry[1],0);
+      let running=0;
+      const cumulative=operations.map(entry=>{running+=entry[1];return total?running/total*100:0});
+      const cumulativeDataset={type:'line',label:'Kümülatif %',data:cumulative,borderColor:'#173f5f',backgroundColor:'#173f5f',pointRadius:3,borderWidth:2,order:0,yAxisID:'y1'};
+      charts.operationPareto=new Chart(el('operationPareto'),{
+        data:{labels:operationNames,datasets:[...barDatasets,cumulativeDataset]},
+        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:ctx=>ctx.dataset.yAxisID==='y1'?`${ctx.dataset.label}: %${trPercent.format(ctx.parsed.y)}`:`${ctx.dataset.label}: ${amount(ctx.parsed.y)} adet`}}},scales:{x:{stacked:true,ticks:{maxRotation:35,minRotation:0}},y:{stacked:true,beginAtZero:true,title:{display:true,text:'Miktar (adet)'},ticks:{callback:value=>amount(value)}},y1:{beginAtZero:true,max:100,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Kümülatif %'},ticks:{callback:value=>`%${value}`}}}}
+      });
+    }
+    function renderMaterialMonth(rows){
+      destroyChart('materialMonth');
+      const months=unique(rows.map(r=>monthOf(r.operationDate)));
+      const topMaterials=sortedEntries(aggregate(rows,r=>r.materialDescription)).slice(0,10).map(entry=>entry[0]);
+      const datasets=topMaterials.map((material,index)=>({
+        label:material,
+        data:months.map(month=>sum(rows.filter(r=>r.materialDescription===material&&monthOf(r.operationDate)===month))),
+        backgroundColor:palette[index%palette.length],
+        borderWidth:0
+      }));
+      const options=chartOptions('Miktar (adet)');
+      options.plugins.tooltip.filter=context=>Number(context.parsed.y??context.parsed)!==0;
+      options.scales.x.stacked=true;
+      options.scales.y.stacked=true;
+      charts.materialMonth=new Chart(el('materialMonthChart'),{type:'bar',data:{labels:months,datasets},options});
+    }
+    function renderTour(rows){
+      destroyChart('tour');
+      const entries=sortedEntries(aggregate(rows,r=>r.tourTemplate||r.materialDescription)).slice(0,15);
+      charts.tour=new Chart(el('tourChart'),{
+        type:'doughnut',
+        data:{labels:entries.map(entry=>entry[0]),datasets:[{data:entries.map(entry=>entry[1]),backgroundColor:entries.map((_,index)=>palette[index%palette.length]),borderColor:'#fff',borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:10,generateLabels:chart=>Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart).map(item=>({...item,text:shorten(item.text)}))}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${amount(ctx.parsed)} adet`}}}}
+      });
+    }
+
+    function renderMonthlyTable(rows){const entries=[...aggregate(rows,r=>monthOf(r.operationDate)).entries()].sort((a,b)=>a[0].localeCompare(b[0])),total=sum(rows);let html='<table><thead><tr><th>Ay</th><th class="num">Rework (adet)</th><th class="num">Kayıt (adet)</th><th class="num">Pay (%)</th></tr></thead><tbody>';entries.forEach(([month,value])=>{const count=rows.filter(r=>monthOf(r.operationDate)===month).length;html+=`<tr><td>${esc(month)}</td><td class="num">${amount(value)}</td><td class="num">${amount(count)}</td><td class="num">%${trPercent.format(total?value/total*100:0)}</td></tr>`});html+=`<tr class="total-row"><td>Toplam</td><td class="num">${amount(total)}</td><td class="num">${amount(rows.length)}</td><td class="num">%100,0</td></tr></tbody></table>`;el('monthlyTable').innerHTML=entries.length?html:'<div class="empty">Seçime uygun kayıt bulunamadı.</div>'}
+    function pivotTable(rows,rowKey,columnKey,rowLimit,columnLimit,rowHeader='Kırılım'){const rowNames=sortedEntries(aggregate(rows,rowKey)).slice(0,rowLimit).map(x=>x[0]),columnNames=sortedEntries(aggregate(rows,columnKey)).slice(0,columnLimit).map(x=>x[0]);if(!rowNames.length)return'<div class="empty">Seçime uygun kayıt bulunamadı.</div>';let html=`<table><thead><tr><th style="width:240px">${esc(rowHeader)}</th>`+columnNames.map(name=>`<th class="num">${esc(name)}</th>`).join('')+'<th class="num">Toplam (adet)</th></tr></thead><tbody>';rowNames.forEach(rowName=>{const scoped=rows.filter(r=>rowKey(r)===rowName);html+=`<tr><td>${esc(rowName)}</td>`+columnNames.map(columnName=>`<td class="num">${amount(sum(scoped.filter(r=>columnKey(r)===columnName)))}</td>`).join('')+`<td class="num"><b>${amount(sum(scoped))}</b></td></tr>`});html+=`<tr class="total-row"><td>Toplam</td>`+columnNames.map(columnName=>`<td class="num">${amount(sum(rows.filter(r=>columnKey(r)===columnName)))}</td>`).join('')+`<td class="num">${amount(sum(rows))}</td></tr></tbody></table>`;return html}
+    function renderCenterOperationTable(rows){el('centerOperationTable').innerHTML=pivotTable(rows,r=>centerLabel(r),r=>r.operationDescription,40,10)}
+    function renderMaterialCenterTable(rows){el('materialCenterTable').innerHTML=pivotTable(rows,r=>r.materialDescription,r=>centerLabel(r),25,10,'')}
+
+    ['dateFrom','dateTo','workCenter','material','operation','tour'].forEach(id=>el(id).addEventListener('change',render));
+    el('resetFilters').addEventListener('click',()=>{hydrateFilters();render()});
+    if(window.chrome&&window.chrome.webview){window.chrome.webview.addEventListener('message',event=>{const payload=event.data||{};if(payload.type!=='rework-dashboard-data')return;currentState=payload.state||null;allRecords=Array.isArray(payload.records)?payload.records:[];const notice=el('notice');notice.style.display=payload.isSuccess?'none':'block';notice.textContent=payload.statusMessage||'';el('sourceInfo').innerHTML=currentState?`${esc(currentState.originalFileName)}<br>${esc(currentState.importedAt)} · ${esc(currentState.importedBy)} · ${amount(currentState.recordCount)} kayıt`:'Excel yüklenmesi bekleniyor.';hydrateFilters();render()})}
+  </script>
+</body>
+</html>

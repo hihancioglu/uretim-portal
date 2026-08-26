@@ -1,0 +1,95 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>TeknikResimOlcum</RootNamespace>
+    <OptionStrict>On</OptionStrict>
+    <OptionExplicit>On</OptionExplicit>
+    <OptionInfer>On</OptionInfer>
+    <ApplicationIcon>Resources/app_icon.ico</ApplicationIcon>
+    <DocnetCoreVersion>2.6.0</DocnetCoreVersion>
+    <WebView2Version>1.0.2592.51</WebView2Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="$(WebView2Version)" />
+    <PackageReference Include="Docnet.Core" Version="$(DocnetCoreVersion)" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Modules\INO\**\*.vb" />
+    <ProjectReference Include="Modules\INO\INO.Integrated.vbproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\YETKI_MATRISI.md" Link="Docs\YETKI_MATRISI.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="..\YETKI_MATRISI.csv" Link="Docs\YETKI_MATRISI.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="Resources\app_icon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="Resources\app_icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="Resources\hurda_dashboard_v26_12_yonetici_yorumu.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="Resources\rework_dashboard.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="Resources\main_dashboard.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="Resources\vendor\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="Sql\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="Resources\INO\INO_Database.seed.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+  </ItemGroup>
+  <!--
+    Docnet.Core, pdfium.dll dosyasini normal build cikisina kopyaliyor ancak
+    tek-dosyali publish sirasinda native kutuphane otomatik olarak publish
+    klasorune tasinmiyor. PDF render motoru guncelleme paketinde mutlaka ayri
+    bir dosya olarak bulunmalidir.
+  -->
+  <Target Name="CopyPdfiumToPublishDirectory" AfterTargets="Publish">
+    <PropertyGroup>
+      <_PdfiumSource>$(NuGetPackageRoot)docnet.core\$(DocnetCoreVersion)\runtimes\$(RuntimeIdentifier)\native\pdfium.dll</_PdfiumSource>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_PdfiumSource)')" Text="Docnet PDF motoru bulunamadi: $(_PdfiumSource)" />
+    <Copy SourceFiles="$(_PdfiumSource)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyWebView2LoaderToPublishDirectory" AfterTargets="Publish">
+    <PropertyGroup>
+      <_WebView2LoaderSource>$(NuGetPackageRoot)microsoft.web.webview2\$(WebView2Version)\runtimes\$(RuntimeIdentifier)\native\WebView2Loader.dll</_WebView2LoaderSource>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_WebView2LoaderSource)')" Text="WebView2 yukleyicisi bulunamadi: $(_WebView2LoaderSource)" />
+    <Copy SourceFiles="$(_WebView2LoaderSource)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

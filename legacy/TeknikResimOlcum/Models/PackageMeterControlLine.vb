@@ -1,0 +1,20 @@
+Public Class PackageMeterControlLine
+    Public Property ControlId As String = ""
+    Public Property LineId As String = ""
+    Public Property SortNo As Integer
+    Public Property SerialNumber As String = ""
+    Public Property LabelErrorQ3 As String = ""
+    Public Property LabelErrorQ2 As String = ""
+    Public Property LabelErrorQ1 As String = ""
+    Public Property TestFlowQ4Manual As String = ""
+    Public Property TestFlowQ3 As String = ""
+    Public Property TestFlowQ2 As String = ""
+    Public Property TestFlowQ1 As String = ""
+    Public Property CreditResult As String = ""
+    Public Property ValveResult As String = ""
+    Public Property OverallResult As String = ""
+    Public Property CreatedAt As String = ""
+    Public Property CreatedBy As String = ""
+    Public Property UpdatedAt As String = ""
+    Public Property UpdatedBy As String = ""
+End Class
