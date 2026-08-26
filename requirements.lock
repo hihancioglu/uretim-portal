@@ -1,0 +1,9 @@
+# Exact application and test dependency versions for WP-001.
+Django==5.2.8
+celery==5.5.3
+gunicorn==23.0.0
+psycopg[binary]==3.2.12
+pytest==8.4.2
+pytest-django==4.11.1
+redis==6.4.0
+
