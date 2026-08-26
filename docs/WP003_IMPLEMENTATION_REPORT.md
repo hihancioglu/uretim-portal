@@ -36,7 +36,7 @@ UUID technical primary key; protected Product and Mold foreign keys; indexed `is
 
 No uniqueness constraint exists for `Product.tr_code`, `Mold.mold_code`, or `(ProductMold.product, ProductMold.mold)`. Case, whitespace, separators, leading zeros, identity, tokenization, and temporal/cardinality rules remain gated in `WP003_DEFERRED_CONSTRAINTS.md`. UUID primary keys, foreign keys, PostgreSQL field types, and field-boundary cavity validation are the only relevant technical/invariant protections in this package.
 
-The initial migration was written as a normal Django migration matching the model state. `makemigrations` could not be invoked on this host because the required locked packages could not be installed; migration drift remains a mandatory CI gate and must report `No changes detected` before WP-003 can be marked done.
+The initial migration now preserves the abstract `TrackedModel` related-name templates (`%(app_label)s` and `%(class)s`) exactly as Django's field deconstruction reports them. The earlier hand-written migration expanded those templates prematurely; although the resulting runtime reverse names look the same, that serialized migration state differed from Django 5.2.8's model state and caused six spurious `AlterField` operations. Because WP-003 has not been deployed, correcting `0001_initial.py` is the clean migration-semantic fix and avoids a no-op `0002` migration.
 
 ## Service and selector behavior
 
@@ -73,7 +73,7 @@ Local results:
 | `git diff -- legacy/` | PASS — empty |
 | `python -m pip install --requirement requirements.lock` | BLOCKED — environment package proxy returned HTTP 403 for `amqp==5.3.1` |
 | `python manage.py check` | NOT RUN — Django unavailable after dependency-install failure |
-| `python manage.py makemigrations --check --dry-run` | NOT RUN — Django unavailable after dependency-install failure |
+| `python manage.py makemigrations --check --dry-run` | PENDING CI rerun after FIX-001; expected output is `No changes detected` |
 | clean PostgreSQL `python manage.py migrate --noinput` | NOT RUN — Django/PostgreSQL tooling unavailable on this host |
 | `pytest` from `web/` | NOT RUN — Django/pytest-django unavailable |
 | `python -m pytest -p no:django tests/legacy_profiler -q` | PASS — 3 passed |
@@ -88,6 +88,6 @@ No Drawing, DrawingRevision, file/storage, PDF/CAD, control-point, inspection, m
 
 ```text
 WP003_STATUS = BLOCKED
-EXACT_BLOCKER = Required locked dependencies cannot be installed because the environment package proxy returns HTTP 403 for amqp==5.3.1; therefore Django/PostgreSQL checks and a green CI result are not yet available for this commit.
-NEXT_GATE = The pull-request CI must pass all existing gates, after which this report may be updated to WP003_STATUS = DONE.
+EXACT_BLOCKER = GitHub Actions has not yet rerun the complete workflow for WP003-FIX-001.
+NEXT_GATE = The existing pull-request CI must pass Django check, migration drift, clean PostgreSQL migrations, Django tests, legacy profiler tests, and Docker build; only then may this report be updated to WP003_STATUS = DONE.
 ```
