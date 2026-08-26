@@ -10,8 +10,8 @@
 - [x] Add Product, Mold, and ProductMold models, migration, mutation services, authorization-aware selectors, audit events, and inspection-only Django Admin registrations.
 - [x] Add PostgreSQL-oriented tests for identity, cardinality, validation, soft deactivation, permissions, audits, migration policy, and the legacy boundary.
 - [x] Run locally available formatting and static checks and verify `legacy/` has no diff.
-- [ ] Run Django checks, migration drift, a clean PostgreSQL migration, Django tests, and Docker build (host dependency installation is blocked by the package proxy).
-- [ ] Obtain a green CI run for this commit/pull request.
+- [x] Run Django checks, migration drift, a clean PostgreSQL migration, Django tests, legacy profiler tests, and the Docker build in GitHub Actions.
+- [x] Obtain a green CI run for this commit/pull request.
 
 ## Schema created
 
@@ -62,7 +62,7 @@ Product, Mold, and ProductMold are registered in Django Admin for controlled ins
 
 The WP-003 suite covers UUID creation, preserved raw codes, bidirectional many-to-many and repeated-pair capability, duplicate TR/MoldCode acceptance, cavity and blank validation, deactivate-not-delete behavior, anonymous/inactive/unauthorized denial, read authorization, every audit event, update snapshots, absence of uniqueness declarations, and absence of a legacy writer reference.
 
-Local results:
+Verified local and GitHub Actions results:
 
 | Check | Result |
 |---|---|
@@ -71,23 +71,22 @@ Local results:
 | `python -m compileall -q web tools tests` | PASS |
 | `git diff --check` | PASS |
 | `git diff -- legacy/` | PASS — empty |
-| `python -m pip install --requirement requirements.lock` | BLOCKED — environment package proxy returned HTTP 403 for `amqp==5.3.1` |
-| `python manage.py check` | NOT RUN — Django unavailable after dependency-install failure |
-| `python manage.py makemigrations --check --dry-run` | PENDING CI rerun after FIX-001; expected output is `No changes detected` |
-| clean PostgreSQL `python manage.py migrate --noinput` | NOT RUN — Django/PostgreSQL tooling unavailable on this host |
-| `pytest` from `web/` | NOT RUN — Django/pytest-django unavailable |
-| `python -m pytest -p no:django tests/legacy_profiler -q` | PASS — 3 passed |
-| `docker build --tag uretim-portal:ci .` | NOT RUN — Docker executable unavailable |
-| GitHub Actions | PENDING pull-request run |
+| `python manage.py check` | PASS — GitHub Actions |
+| `python manage.py makemigrations --check --dry-run` | PASS — `No changes detected` |
+| `python manage.py migrate --noinput` against clean PostgreSQL | PASS, including `products.0001_initial` |
+| `pytest` from `web/` | PASS — 51 passed |
+| `python -m pytest -p no:django tests/legacy_profiler` | PASS — 3 passed |
+| `docker build --tag uretim-portal:ci .` | PASS |
+| GitHub Actions complete workflow | PASS |
 
 No dependency was added and no CI gate was weakened.
 
-## Scope and next gates
+## Scope and deferred data gate
 
 No Drawing, DrawingRevision, file/storage, PDF/CAD, control-point, inspection, measurement, SPC/MSA, molding workflow, ticket, test, commissioning, or legacy-import implementation was added. WP-004 has not started.
 
+The authoritative WP-000 data gate remains pending. Product TR identity, MoldCode identity, Product-Mold cardinality, case sensitivity, whitespace and separator normalization, and leading-zero handling therefore remain `DEFERRED_PENDING_WP000_DATA_GATE`; the green WP-003 CI result does not finalize any of those decisions.
+
 ```text
-WP003_STATUS = BLOCKED
-EXACT_BLOCKER = GitHub Actions has not yet rerun the complete workflow for WP003-FIX-001.
-NEXT_GATE = The existing pull-request CI must pass Django check, migration drift, clean PostgreSQL migrations, Django tests, legacy profiler tests, and Docker build; only then may this report be updated to WP003_STATUS = DONE.
+WP003_STATUS = DONE
 ```
