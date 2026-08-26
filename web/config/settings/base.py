@@ -14,6 +14,7 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 INSTALLED_APPS = [
+    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -23,6 +24,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.audit",
     "apps.core",
+    "apps.products",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
