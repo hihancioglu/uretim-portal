@@ -5,4 +5,4 @@ __pycache__/
 .coverage
 htmlcov/
 staticfiles/
-
+artifacts/legacy-profile/

@@ -60,6 +60,9 @@ jobs:
         run: python manage.py migrate --noinput
       - name: Run tests
         run: pytest
+      - name: Run legacy profiler tests
+        working-directory: .
+        run: python -m pytest tests/legacy_profiler
       - name: Build runtime image
         working-directory: .
         run: docker build --tag uretim-portal:ci .
