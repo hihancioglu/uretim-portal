@@ -13,6 +13,7 @@ REQUIRED_ENVIRONMENT = (
     "REDIS_URL",
     "CELERY_BROKER_URL",
     "CELERY_RESULT_BACKEND",
+    "DRAWING_STORAGE_ROOT",
 )
 
 missing = [name for name in REQUIRED_ENVIRONMENT if not os.environ.get(name, "").strip()]
@@ -22,6 +23,15 @@ if missing:
     )
 
 from .base import *  # noqa: E402,F403
+
+if DRAWING_STORAGE_BACKEND != "filesystem":  # noqa: F405
+    raise RuntimeError("WP-004 production supports only filesystem drawing storage")
+drawing_root = Path(DRAWING_STORAGE_ROOT).resolve()  # noqa: F405
+for forbidden_root in (BASE_DIR.resolve(), STATIC_ROOT.resolve()):  # noqa: F405
+    if drawing_root == forbidden_root or drawing_root.is_relative_to(forbidden_root):
+        raise RuntimeError("DRAWING_STORAGE_ROOT must be outside the checkout and public roots")
+if DRAWING_MAX_UPLOAD_BYTES <= 0:  # noqa: F405
+    raise RuntimeError("DRAWING_MAX_UPLOAD_BYTES must be positive")
 
 if not ALLOWED_HOSTS:  # noqa: F405
     raise RuntimeError("DJANGO_ALLOWED_HOSTS must be set in production")

@@ -67,3 +67,11 @@ jobs:
       - name: Build runtime image
         working-directory: ${{ github.workspace }}
         run: docker build --tag uretim-portal:ci .
+      - name: Verify private volume is writable as runtime user
+        working-directory: ${{ github.workspace }}
+        run: |
+          volume="uretim-portal-drawings-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'docker volume rm --force "$volume" >/dev/null 2>&1 || true' EXIT
+          docker volume create "$volume"
+          docker run --rm --volume "$volume:/data/drawings" uretim-portal:ci \
+            python -c 'import os, pathlib; assert os.geteuid() != 0; p = pathlib.Path("/data/drawings/.ci-storage-smoke"); p.write_bytes(b"private-storage-smoke"); assert p.read_bytes() == b"private-storage-smoke"; p.unlink()'
