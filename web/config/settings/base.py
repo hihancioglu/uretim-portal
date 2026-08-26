@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "apps.audit",
     "apps.core",
     "apps.products",
+    "apps.drawings",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -64,6 +65,9 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+DRAWING_STORAGE_BACKEND = os.getenv("DRAWING_STORAGE_BACKEND", "filesystem")
+DRAWING_STORAGE_ROOT = os.getenv("DRAWING_STORAGE_ROOT", "/tmp/uretim-portal-drawings")
+DRAWING_MAX_UPLOAD_BYTES = int(os.getenv("DRAWING_MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/1")

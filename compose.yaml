@@ -31,6 +31,8 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     networks: [backend, frontend]
+    volumes:
+      - drawing_data:/data/drawings
 
   worker:
     build: .
@@ -40,6 +42,8 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     networks: [backend]
+    volumes:
+      - drawing_data:/data/drawings
 
   nginx:
     image: nginx:1.29.2-alpine
@@ -56,4 +60,4 @@ networks:
 
 volumes:
   postgres_data:
-
+  drawing_data:
