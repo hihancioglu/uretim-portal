@@ -1,0 +1,60 @@
+{% load static %}<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teknik Resim — {{ revision.revision_code }}</title>
+  <link rel="stylesheet" href="{% static 'drawings/viewer.css' %}">
+</head>
+<body>
+<main class="viewer-layout">
+  <aside class="revision-panel" aria-label="Revizyonlar">
+    <h1>Revizyonlar</h1>
+    <ul>
+      {% for item in revisions %}
+      <li class="revision revision--{{ item.status|lower }}{% if item.id == revision.id %} revision--current{% endif %}">
+        <a href="{% url 'drawings:revision-viewer' item.id %}">
+          <strong>{{ item.revision_code }}</strong>
+          <span>{{ item.get_status_display }} ({{ item.status }})</span>
+          {% if item.effective_from %}<time>{{ item.effective_from }}</time>{% endif %}
+          {% if item.effective_to %}<time>{{ item.effective_to }}</time>{% endif %}
+          {% if item.approved_at %}<time>{{ item.approved_at }}</time>{% endif %}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+  <section id="drawing-viewer" class="viewer-shell" {% if renderable %}data-content-url="{{ content_url }}" data-worker-url="{% static 'vendor/pdfjs/2.14.305/pdf.worker.min.js' %}"{% endif %}>
+    <nav class="toolbar" aria-label="PDF araçları">
+      <button type="button" data-action="previous" aria-label="Önceki sayfa">‹</button>
+      <label>Sayfa <input data-role="page" type="number" min="1" value="1" inputmode="numeric"></label>
+      <span>/ <span data-role="page-count">—</span></span>
+      <button type="button" data-action="next" aria-label="Sonraki sayfa">›</button>
+      <span class="toolbar-separator"></span>
+      <button type="button" data-action="zoom-out" aria-label="Uzaklaştır">−</button>
+      <span data-role="zoom">100%</span>
+      <button type="button" data-action="zoom-in" aria-label="Yakınlaştır">+</button>
+      <button type="button" data-action="actual">%100</button>
+      <button type="button" data-action="fit-page">Sayfaya sığdır</button>
+      <button type="button" data-action="fit-width">Genişliğe sığdır</button>
+      <a href="{{ download_url }}">İndir</a>
+    </nav>
+    {% if renderable %}
+    <div class="viewer-status" data-role="status" role="status">Teknik resim yükleniyor…</div>
+    <div class="viewport" data-role="viewport">
+      <div class="page-stage" data-role="page-stage">
+        <canvas data-role="canvas" aria-label="PDF sayfası"></canvas>
+        <div class="overlay-layer" data-role="overlay" aria-hidden="true"></div>
+      </div>
+    </div>
+    {% else %}
+    <div class="viewer-error" role="alert">{{ unsupported_reason }}</div>
+    {% endif %}
+  </section>
+</main>
+{% if renderable %}
+<script src="{% static 'vendor/pdfjs/2.14.305/pdf.min.js' %}"></script>
+<script type="module" src="{% static 'drawings/viewer.js' %}"></script>
+{% endif %}
+</body>
+</html>

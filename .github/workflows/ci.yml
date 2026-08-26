@@ -66,7 +66,25 @@ jobs:
         run: python -m pytest -p no:django tests/legacy_profiler
       - name: Build runtime image
         working-directory: ${{ github.workspace }}
-        run: docker build --tag uretim-portal:ci .
+        run: |
+          docker build --target runtime --tag uretim-portal:ci .
+          docker build --target static-server --tag uretim-portal-static:ci .
+      - name: Verify production static and local PDF.js delivery
+        working-directory: ${{ github.workspace }}
+        run: |
+          container="uretim-portal-static-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'docker rm --force "$container" >/dev/null 2>&1 || true' EXIT
+          docker run --detach --name "$container" --publish 127.0.0.1::80 uretim-portal-static:ci
+          port="$(docker port "$container" 80/tcp | sed 's/.*://')"
+          for asset in \
+            drawings/viewer.css \
+            vendor/pdfjs/2.14.305/pdf.min.js \
+            vendor/pdfjs/2.14.305/pdf.worker.min.js
+          do
+            curl --fail --silent --show-error --retry 10 --retry-connrefused \
+              --output "/tmp/$(basename "$asset")" "http://127.0.0.1:${port}/static/${asset}"
+            test -s "/tmp/$(basename "$asset")"
+          done
       - name: Verify private volume is writable as runtime user
         working-directory: ${{ github.workspace }}
         run: |

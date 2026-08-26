@@ -57,6 +57,27 @@ class FilesystemStorage:
     def open(self, storage_key):
         return self._path(storage_key).open("rb")
 
+    def size(self, storage_key):
+        """Return the physical object size without exposing its path."""
+        return self._path(storage_key).stat().st_size
+
+    def iter_range(self, storage_key, start=0, length=None, chunk_size=64 * 1024):
+        """Yield a bounded portion of an object and always close the handle."""
+        stream = self.open(storage_key)
+        try:
+            stream.seek(start)
+            remaining = length
+            while remaining is None or remaining > 0:
+                requested = chunk_size if remaining is None else min(chunk_size, remaining)
+                chunk = stream.read(requested)
+                if not chunk:
+                    break
+                yield chunk
+                if remaining is not None:
+                    remaining -= len(chunk)
+        finally:
+            stream.close()
+
     def exists(self, storage_key):
         return self._path(storage_key).is_file()
 
