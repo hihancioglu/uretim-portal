@@ -7,7 +7,7 @@
 - [x] Add bounded single-range streaming through the storage adapter.
 - [x] Add a current-page, high-DPI viewer and an empty normalized overlay plane.
 - [x] Add collectstatic-backed Nginx delivery without mounting private drawings.
-- [ ] Vendor the pinned upstream PDF.js distribution (blocked by the execution environment's HTTP 403 policy).
+- [x] Acquire the exact official PDF.js package in an isolated Docker build stage.
 - [ ] Run PostgreSQL, Docker, and GitHub CI gates.
 
 ## Request and authorization flow
@@ -48,9 +48,9 @@ The view only passes an opaque storage key to `apps.core.storage`; it cannot con
 
 ## PDF.js and local asset strategy
 
-The selected pin is official Mozilla PDF.js **2.14.305** (Apache-2.0), matching the distribution packaged from Mozilla's `pdf.js` source. Required files are `pdf.min.js`, `pdf.worker.min.js`, upstream `LICENSE`, and provenance metadata under `web/apps/drawings/static/vendor/pdfjs/2.14.305/`. Runtime CDN use is forbidden.
+PDF.js is pinned to **6.2.108** and sourced only from the official npm package `pdfjs-dist@6.2.108`. An isolated `node:24-alpine` Docker build stage installs that exact package with scripts, audit, and funding operations disabled. It copies only `build/pdf.mjs`, `build/pdf.worker.mjs`, and the upstream `LICENSE` into the Django static source used by `collectstatic`.
 
-**Current gate:** those four vendored upstream files could not be retrieved because every allowed registry/archive request in this environment returned HTTP 403. They have intentionally not been replaced with unofficial, hand-written, or CDN-loaded substitutes. The architecture is therefore implemented but WP-005 remains blocked until reviewed upstream bytes can be committed and their SHA-256 values recorded.
+Acquisition happens at Docker build time only. Generated upstream distribution files are not manually maintained in the Git working tree. The immutable production static output serves them fully locally and same-origin; browser runtime Internet dependency is **NONE**. The viewer dynamically imports the local ES module, uses its local worker, and explicitly sets `enableScripting: false` and `isEvalSupported: false`. PDF scripting is **DISABLED**, and no `unsafe-eval` allowance or CDN fallback is introduced.
 
 ## Production static delivery
 

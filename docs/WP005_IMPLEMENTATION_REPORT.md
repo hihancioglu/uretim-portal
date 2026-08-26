@@ -24,22 +24,26 @@ The content route supports plaintext `.pdf` with encryption `NONE`. `.pdf.enc`, 
 
 ## Test coverage added
 
-Authorization cases cover anonymous, no-role, wrong Drawing scope, correct scope, and broad `manager` through the real authorization data model. Tests also cover UUID navigation with duplicate revision codes, safe metadata, unsupported types, full and three range forms, invalid ranges, HEAD, missing objects, safe filename disposition, local-only asset references, overlay structure, and vendored-file presence. The WP-004 download route and its existing authorization tests are unchanged.
+Authorization cases cover anonymous, no-role, wrong Drawing scope, correct scope, and broad `manager` through the real authorization data model. Tests also cover UUID navigation with duplicate revision codes, safe metadata, unsupported types, full and three range forms, invalid ranges, HEAD, missing objects, safe filename disposition, local-only asset references, overlay structure, and Docker-build acquisition configuration and local ESM security settings. The WP-004 download route and its existing authorization tests are unchanged.
 
-## Blocking gate and verification record
+## PDF.js security correction and verification record
 
-The exact PDF.js pin selected is **2.14.305**. Required official distribution bytes could not be downloaded: `apt-get download pdf.js-common` and the npm registry request both failed with `403 Forbidden` from the environment proxy. No unofficial replacement or runtime CDN was used. Consequently the vendored-asset existence test and Docker static smoke cannot pass, plaintext PDF rendering is unavailable, and acceptance correctly remains blocked.
+The earlier vulnerable/blocked pin was abandoned. PDF.js is now pinned to **6.2.108** from the official `pdfjs-dist@6.2.108` npm package. An isolated Node build stage acquires it at Docker build time and copies only `pdf.mjs`, `pdf.worker.mjs`, and `LICENSE` into collectstatic input. Node/npm is absent from the runtime and Nginx images. Browser assets remain local and same-origin, with PDF scripting and eval support explicitly disabled.
+
+GitHub CI run #25 reached the full Django suite: **89 collected, 88 passed, 1 failed**. Its sole failure was the obsolete source-tree vendored-file assertion. FIX-001 replaces that assertion with deterministic ESM/version/scripting/no-CDN tests and moves real asset existence/delivery verification to the Docker static-server smoke gate. A post-fix GitHub run has not yet completed, so this report correctly remains BLOCKED rather than claiming expected results as actual results.
 
 | Check | Result |
 |---|---|
-| `python -m compileall -q web tools tests` | PASS |
-| `python manage.py check` | Blocked locally: dependencies unavailable |
-| `python manage.py makemigrations --check --dry-run` | Blocked locally: dependencies unavailable; no model/migration touched |
-| clean PostgreSQL migration / full pytest / profiler pytest | Pending final run |
-| Docker runtime/static builds and smoke gates | Blocked until official PDF.js files are present; Docker availability pending |
-| `git diff -- legacy/` | PASS — empty |
-| GitHub CI | Pending; cannot be green while the upstream asset gate is open |
+| `python -m compileall -q web tools tests` | PASS locally |
+| `python manage.py check` | BLOCKED locally: Django dependency unavailable; post-fix CI pending |
+| `python manage.py makemigrations --check --dry-run` | BLOCKED locally: Django dependency unavailable; no model or migration changed |
+| full PostgreSQL pytest | CI #25: 88 passed, 1 obsolete asset-test failure; post-fix run pending |
+| legacy profiler pytest | CI #25 reached pytest successfully; post-fix result pending |
+| Docker runtime/static builds and static HTTP smoke | Post-fix run pending; must acquire official npm package successfully |
+| private-volume non-root smoke | Post-fix run pending and retained unchanged |
+| `git diff -- legacy/` | PASS locally — empty |
+| GitHub CI | Post-fix result pending; WP-005 remains BLOCKED until completely green |
 
 ## Known limitations and next gate
 
-A reviewer/operator with approved upstream access must add the unmodified official `pdf.min.js`, `pdf.worker.min.js`, and LICENSE for 2.14.305, record URL/checksums in `PROVENANCE.md`, then run every required PostgreSQL, migration, profiler, Docker, static HTTP, private-volume, and GitHub CI gate. Do not mark this WP done before all are green. `.pdf.enc`, DWG, and DXF remain explicitly unsupported. WP-006 control points were not started.
+`.pdf.enc`, `LEGACY_AES_GCM`, DWG, and DXF remain explicitly unsupported. No decryption, CAD conversion, identity pairing, or control-point persistence was added, and WP-006 was not started. The only completion gate is an actual completely green post-fix GitHub Actions run, including npm acquisition, production static delivery, and the retained private-volume smoke.

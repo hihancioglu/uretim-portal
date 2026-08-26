@@ -87,7 +87,8 @@ def test_viewer_uses_uuid_safe_metadata_and_local_overlay(client, drawing_data, 
     assert revision.primary_file.storage_key not in html
     assert str(settings.DRAWING_STORAGE_ROOT) not in html
     assert "cdnjs" not in html and "jsdelivr" not in html and "unpkg" not in html
-    assert "/static/vendor/pdfjs/2.14.305/pdf.worker.min.js" in html
+    assert "/static/vendor/pdfjs/6.2.108/pdf.mjs" in html
+    assert "/static/vendor/pdfjs/6.2.108/pdf.worker.mjs" in html
     assert "control-point" not in html.casefold()
 
 
@@ -195,14 +196,50 @@ def test_inline_filename_removes_crlf_and_both_path_separators(client, drawing_d
     assert "\r" not in disposition and "\n" not in disposition
 
 
-def test_vendored_pdfjs_distribution_files_exist():
-    static = Path(__file__).parents[1] / "apps/drawings/static"
-    for relative in (
-        "drawings/viewer.css",
-        "drawings/viewer.js",
-        "vendor/pdfjs/2.14.305/pdf.min.js",
-        "vendor/pdfjs/2.14.305/pdf.worker.min.js",
-        "vendor/pdfjs/2.14.305/LICENSE",
-        "vendor/pdfjs/2.14.305/PROVENANCE.md",
-    ):
-        assert (static / relative).stat().st_size > 0
+def test_pdfjs_is_local_modern_esm_with_scripting_disabled():
+    web_root = Path(__file__).parents[1]
+    viewer_source = (
+        web_root / "apps/drawings/static/drawings/viewer.js"
+    ).read_text(encoding="utf-8")
+    template_source = (
+        web_root / "apps/drawings/templates/drawings/revision_viewer.html"
+    ).read_text(encoding="utf-8")
+
+    assert "await import(shell.dataset.pdfjsUrl)" in viewer_source
+    assert "enableScripting: false" in viewer_source
+    assert "isEvalSupported: false" in viewer_source
+    assert "window.pdfjsLib" not in viewer_source
+    assert "vendor/pdfjs/6.2.108/pdf.mjs" in template_source
+    assert "vendor/pdfjs/6.2.108/pdf.worker.mjs" in template_source
+    assert "<script src=" not in template_source
+    for forbidden in ("cdnjs", "jsdelivr", "unpkg"):
+        assert forbidden not in (viewer_source + template_source)
+
+
+def test_no_obsolete_pdfjs_reference_remains_in_wp005_sources():
+    root = Path(__file__).parents[2]
+    checked = [
+        root / "Dockerfile",
+        root / ".github/workflows/ci.yml",
+        root / "docs/WP005_PDF_VIEWER_ARCHITECTURE.md",
+        root / "docs/WP005_IMPLEMENTATION_REPORT.md",
+        root / "web/apps/drawings/templates/drawings/revision_viewer.html",
+        root / "web/apps/drawings/static/drawings/viewer.js",
+    ]
+    obsolete = ("2.14" + ".305", "pdf.min" + ".js", "pdf.worker.min" + ".js")
+    for path in checked:
+        source = path.read_text(encoding="utf-8")
+        for reference in obsolete:
+            assert reference not in source
+
+
+def test_docker_acquires_exact_official_pdfjs_assets_at_build_time():
+    dockerfile = (Path(__file__).parents[2] / "Dockerfile").read_text(encoding="utf-8")
+    assert "FROM node:24-alpine AS pdfjs-assets" in dockerfile
+    assert "--ignore-scripts" in dockerfile
+    assert "--no-audit" in dockerfile
+    assert "--no-fund" in dockerfile
+    assert "--save-exact" in dockerfile
+    assert "pdfjs-dist@6.2.108" in dockerfile
+    for asset in ("build/pdf.mjs", "build/pdf.worker.mjs", "pdfjs-dist/LICENSE"):
+        assert asset in dockerfile

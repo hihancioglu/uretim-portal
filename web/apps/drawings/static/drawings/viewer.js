@@ -15,8 +15,7 @@ let scale = 1;
 let mode = "actual";
 let renderTask;
 let generation = 0;
-
-window.pdfjsLib.GlobalWorkerOptions.workerSrc = shell.dataset.workerUrl;
+let pdfjsLib;
 
 function clampScale(value) { return Math.min(MAX_SCALE, Math.max(MIN_SCALE, value)); }
 function showError(message = "Teknik resim görüntülenemedi.") {
@@ -78,7 +77,14 @@ shell.addEventListener("click", (event) => {
 pageInput.addEventListener("change", () => setPage(pageInput.value));
 new ResizeObserver(() => { if (mode.startsWith("fit")) renderPage(); }).observe(viewport);
 try {
-  documentHandle = await window.pdfjsLib.getDocument({ url: shell.dataset.contentUrl, withCredentials: true }).promise;
+  pdfjsLib = await import(shell.dataset.pdfjsUrl);
+  pdfjsLib.GlobalWorkerOptions.workerSrc = shell.dataset.workerUrl;
+  documentHandle = await pdfjsLib.getDocument({
+    url: shell.dataset.contentUrl,
+    withCredentials: true,
+    enableScripting: false,
+    isEvalSupported: false,
+  }).promise;
   pageCount.textContent = documentHandle.numPages;
   await renderPage();
 } catch (_) { showError("PDF yüklenemedi. Yetkinizi ve dosyanın geçerli olduğunu kontrol edin."); }

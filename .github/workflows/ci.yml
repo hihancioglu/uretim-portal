@@ -78,12 +78,18 @@ jobs:
           port="$(docker port "$container" 80/tcp | sed 's/.*://')"
           for asset in \
             drawings/viewer.css \
-            vendor/pdfjs/2.14.305/pdf.min.js \
-            vendor/pdfjs/2.14.305/pdf.worker.min.js
+            drawings/viewer.js \
+            vendor/pdfjs/6.2.108/pdf.mjs \
+            vendor/pdfjs/6.2.108/pdf.worker.mjs \
+            vendor/pdfjs/6.2.108/LICENSE
           do
-            curl --fail --silent --show-error --retry 10 --retry-connrefused \
+            headers="/tmp/$(basename "$asset").headers"
+            curl --fail --silent --show-error --retry 10 --retry-connrefused --dump-header "$headers" \
               --output "/tmp/$(basename "$asset")" "http://127.0.0.1:${port}/static/${asset}"
             test -s "/tmp/$(basename "$asset")"
+            if [[ "$asset" == *.mjs ]]; then
+              grep -Eiq '^content-type: (text|application)/javascript' "$headers"
+            fi
           done
       - name: Verify private volume is writable as runtime user
         working-directory: ${{ github.workspace }}

@@ -1,3 +1,12 @@
+FROM node:24-alpine AS pdfjs-assets
+WORKDIR /pdfjs
+RUN npm init --yes >/dev/null && npm install \
+    --ignore-scripts \
+    --no-audit \
+    --no-fund \
+    --save-exact \
+    pdfjs-dist@6.2.108
+
 FROM python:3.13.7-slim AS application-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
@@ -11,6 +20,11 @@ USER app
 WORKDIR /app/web
 
 FROM application-base AS static-collector
+COPY --from=pdfjs-assets --chown=app:app \
+    /pdfjs/node_modules/pdfjs-dist/build/pdf.mjs \
+    /pdfjs/node_modules/pdfjs-dist/build/pdf.worker.mjs \
+    /pdfjs/node_modules/pdfjs-dist/LICENSE \
+    /app/web/apps/drawings/static/vendor/pdfjs/6.2.108/
 RUN DJANGO_SETTINGS_MODULE=config.settings.production \
     DJANGO_SECRET_KEY=build-only POSTGRES_PASSWORD=build-only \
     DJANGO_ALLOWED_HOSTS=localhost DRAWING_STORAGE_ROOT=/data/drawings \
