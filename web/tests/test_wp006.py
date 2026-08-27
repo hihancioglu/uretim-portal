@@ -22,6 +22,7 @@ from apps.drawings.models import Drawing, DrawingRevision
 from apps.products.models import Product
 
 pytestmark = pytest.mark.django_db
+WEB_ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
@@ -244,9 +245,14 @@ def test_structural_uniqueness_but_not_speculative_business_uniqueness(domain):
 
 
 def test_overlay_contract_uses_css_normalized_coordinates_only():
-    js = Path(
-        "web/apps/control_points/static/control_points/control_points.js"
-    ).read_text()
+    js = (
+        WEB_ROOT
+        / "apps"
+        / "control_points"
+        / "static"
+        / "control_points"
+        / "control_points.js"
+    ).read_text(encoding="utf-8")
     assert "drawingviewer:rendered" in js and "getBoundingClientRect" in js
     assert "clientX - rect.left" in js and "clientY - rect.top" in js
     assert "devicePixelRatio" not in js and "canvas.width" not in js
