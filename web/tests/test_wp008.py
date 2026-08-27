@@ -225,3 +225,81 @@ def test_static_keyboard_overlay_and_security_contract():
     assert "inspectionOverlayUrl" in overlay and "requirement_id" in overlay
     assert "http://" not in keyboard + overlay and "https://" not in keyboard + overlay and "/data/drawings" not in keyboard + overlay
     assert (root / "inspection.css").is_file()
+
+
+def test_overlay_css_is_isolated_and_loaded_only_in_overlay_viewer(client, domain):
+    actor, _, _, revision = domain
+    point(revision)
+    session = create_and_start_inspection(actor=actor, drawing_revision=revision)
+    eye = session.eyes.get()
+    client.force_login(actor)
+    normal = client.get(reverse("drawings:revision-viewer", args=[revision.id])).content.decode()
+    overlay = client.get(reverse("drawings:revision-viewer", args=[revision.id]), {"inspection": session.id, "eye": eye.id}).content.decode()
+    assert "inspections/inspection_overlay.css" not in normal
+    assert "inspections/inspection.css" not in normal
+    assert "inspections/inspection_overlay.css" in overlay
+    assert "inspections/inspection.css" not in overlay
+    overlay_css = (Path(__file__).parents[1] / "apps/inspections/static/inspections/inspection_overlay.css").read_text()
+    assert ".inspection-marker" in overlay_css
+    assert "body{" not in overlay_css and "main{" not in overlay_css and "nav{" not in overlay_css
+
+
+def test_static_cross_page_highlight_and_live_progress_contract():
+    root = Path(__file__).parents[1] / "apps/inspections/static/inspections"
+    overlay = (root / "inspection_overlay.js").read_text()
+    keyboard = (root / "inspection.js").read_text()
+    assert "marker.page_no" in overlay and "pageInput.dispatchEvent" in overlay
+    assert "drawingviewer:rendered" in overlay and "focusPendingMarker" in overlay
+    assert "data-mandatory=\"true\"" in keyboard
+    assert "data-mandatory-done" in keyboard and "data.result" in keyboard
+
+
+def test_manager_active_session_link_is_read_only_detail(client, domain):
+    actor, _, _, revision = domain
+    point(revision)
+    session = create_and_start_inspection(actor=actor, drawing_revision=revision)
+    manager = actor_for("manager", "manager-active-wp8")
+    client.force_login(manager)
+    body = client.get(reverse("inspections:history")).content.decode()
+    assert reverse("inspections:detail", args=[session.id]) in body
+    assert reverse("inspections:work", args=[session.id]) not in body
+
+
+def test_malformed_workspace_and_viewer_queries_never_500(client, domain):
+    actor, _, _, revision = domain
+    point(revision)
+    session = create_and_start_inspection(actor=actor, drawing_revision=revision)
+    client.force_login(actor)
+    assert client.get(reverse("inspections:work", args=[session.id]), {"eye": "not-a-uuid"}).status_code == 400
+    viewer = reverse("drawings:revision-viewer", args=[revision.id])
+    assert client.get(viewer, {"inspection": "not-a-uuid", "eye": "also-bad"}).status_code == 400
+    assert client.get(viewer, {"inspection": session.id, "eye": "also-bad"}).status_code == 400
+
+
+def test_invalid_history_filters_render_safely(client, domain):
+    actor, _, _, _ = domain
+    manager = actor_for("manager", "manager-invalid-filter-wp8")
+    client.force_login(manager)
+    response = client.get(reverse("inspections:history"), {"date_from": "not-a-date", "date_to": "2026-99-99", "status": "UNKNOWN", "result": "MAYBE"})
+    assert response.status_code == 200
+    assert "Geçersiz filtreler yok sayıldı" in response.content.decode()
+
+
+def test_inactive_locked_drawing_rejects_start_without_orphan(domain):
+    actor, _, drawing, revision = domain
+    point(revision)
+    drawing.is_active = False
+    drawing.save(update_fields=("is_active",))
+    with pytest.raises(InspectionError, match="Pasif teknik resim"):
+        create_and_start_inspection(actor=actor, drawing_revision=revision)
+    assert not InspectionSession.objects.exists()
+
+
+def test_overlay_endpoint_rejects_unauthorized_scope(client, domain):
+    actor, _, _, revision = domain
+    point(revision)
+    session = create_and_start_inspection(actor=actor, drawing_revision=revision)
+    incoming = actor_for("incoming_quality", "incoming-overlay-denied-wp8")
+    client.force_login(incoming)
+    response = client.get(reverse("inspections:overlay", args=[session.id, session.eyes.get().id]))
+    assert response.status_code == 403

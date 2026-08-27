@@ -66,7 +66,9 @@ def calculate_measurement_result(measured_value, lower_limit, upper_limit):
 
 @transaction.atomic
 def create_and_start_inspection(*, actor, drawing_revision, declared_eye_count=1, lot_no="", serial_no=""):
-    Drawing.objects.select_for_update().get(pk=drawing_revision.drawing_id)
+    locked_drawing = Drawing.objects.select_for_update().get(pk=drawing_revision.drawing_id)
+    if not locked_drawing.is_active:
+        raise InspectionError("Pasif teknik resim ile kontrol başlatılamaz.")
     locked_revision = DrawingRevision.objects.select_for_update().select_related("drawing").get(pk=drawing_revision.pk)
     if locked_revision.status != DrawingRevision.Status.ACTIVE:
         raise InspectionError("Yalnız aktif teknik resim revizyonu ile kontrol başlatılabilir.")

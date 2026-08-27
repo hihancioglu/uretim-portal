@@ -112,6 +112,7 @@ jobs:
             inspections/inspection.css \
             inspections/inspection.js \
             inspections/inspection_overlay.js \
+            inspections/inspection_overlay.css \
             vendor/pdfjs/6.2.108/pdf.mjs \
             vendor/pdfjs/6.2.108/pdf.worker.mjs \
             vendor/pdfjs/6.2.108/LICENSE

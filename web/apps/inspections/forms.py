@@ -10,6 +10,29 @@ class InspectionLaunchForm(forms.Form):
     declared_eye_count = forms.IntegerField(min_value=1, initial=1)
 
 
+class WorkspaceQueryForm(forms.Form):
+    eye = forms.UUIDField(required=False)
+
+
+class InspectionViewerQueryForm(forms.Form):
+    inspection = forms.UUIDField(required=True)
+    eye = forms.UUIDField(required=True)
+
+
+class HistoryFilterForm(forms.Form):
+    q = forms.CharField(required=False)
+    lot = forms.CharField(required=False)
+    serial = forms.CharField(required=False)
+    operator = forms.CharField(required=False)
+    status = forms.ChoiceField(
+        required=False,
+        choices=(("", "Tümü"), ("DRAFT", "Taslak"), ("IN_PROGRESS", "Devam Ediyor"), ("WAITING_VISUAL", "Görsel Kontrol Bekliyor"), ("COMPLETED", "Tamamlandı"), ("CANCELLED", "İptal Edildi")),
+    )
+    result = forms.ChoiceField(required=False, choices=(("", "Tümü"), ("OK", "OK"), ("NOK", "NOK")))
+    date_from = forms.DateField(required=False)
+    date_to = forms.DateField(required=False)
+
+
 class MeasurementForm(forms.Form):
     measured_value = forms.CharField()
     note = forms.CharField(required=False)

@@ -1,6 +1,12 @@
 const shell = document.querySelector('#drawing-viewer');
 const overlay = shell?.querySelector('[data-role="overlay"]');
 let markers = [];
+let pendingHighlight;
+function focusPendingMarker() {
+  if (!pendingHighlight) return;
+  const target = overlay.querySelector(`[data-requirement-id="${CSS.escape(pendingHighlight)}"]`);
+  if (target) { target.focus(); pendingHighlight = undefined; }
+}
 function renderMarkers(pageNumber) {
   overlay.replaceChildren();
   markers.filter(marker => marker.page_no === pageNumber).forEach(marker => {
@@ -16,6 +22,7 @@ function renderMarkers(pageNumber) {
     button.addEventListener('click', () => parent.postMessage({type: 'inspection:focus-row', requirementId: marker.requirement_id}, location.origin));
     overlay.append(button);
   });
+  focusPendingMarker();
 }
 shell.addEventListener('drawingviewer:rendered', event => renderMarkers(event.detail.pageNumber));
 window.addEventListener('message', event => {
@@ -24,7 +31,18 @@ window.addEventListener('message', event => {
     const marker = markers.find(item => item.requirement_id === event.data.requirementId);
     if (marker) { marker.state = event.data.state; renderMarkers(Number(shell.querySelector('[data-role="page"]').value)); }
   }
-  if (event.data?.type === 'inspection:highlight-marker') overlay.querySelector(`[data-requirement-id="${CSS.escape(event.data.requirementId)}"]`)?.focus();
+  if (event.data?.type === 'inspection:highlight-marker') {
+    const marker = markers.find(item => item.requirement_id === event.data.requirementId);
+    if (!marker) return;
+    pendingHighlight = marker.requirement_id;
+    const pageInput = shell.querySelector('[data-role="page"]');
+    if (Number(pageInput.value) !== marker.page_no) {
+      pageInput.value = marker.page_no;
+      pageInput.dispatchEvent(new Event('change', {bubbles: true}));
+    } else {
+      focusPendingMarker();
+    }
+  }
 });
 try {
   const response = await fetch(shell.dataset.inspectionOverlayUrl, {headers: {'Accept': 'application/json'}});

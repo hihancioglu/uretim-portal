@@ -1,7 +1,7 @@
 import re
 
 from django.core.exceptions import PermissionDenied
-from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils.http import content_disposition_header
@@ -80,12 +80,16 @@ def revision_viewer(request, revision_id):
     inspection_session_id = request.GET.get("inspection")
     inspection_eye_id = request.GET.get("eye")
     if inspection_session_id or inspection_eye_id:
+        from apps.inspections.forms import InspectionViewerQueryForm
         from apps.inspections.models import InspectionEye, InspectionSession
 
+        query_form = InspectionViewerQueryForm(request.GET)
+        if not query_form.is_valid():
+            return HttpResponseBadRequest("Kontrol veya göz kimliği geçersiz.")
         session = get_object_or_404(
-            InspectionSession, pk=inspection_session_id, drawing_revision=revision
+            InspectionSession, pk=query_form.cleaned_data["inspection"], drawing_revision=revision
         )
-        eye = get_object_or_404(InspectionEye, pk=inspection_eye_id, session=session)
+        eye = get_object_or_404(InspectionEye, pk=query_form.cleaned_data["eye"], session=session)
         can_inspect = has_scoped_action(
             request.user, "measurements.create", scope_type="DRAWING", scope_key=session.scope
         ) or has_scoped_action(

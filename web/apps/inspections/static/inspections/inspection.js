@@ -16,6 +16,9 @@ forms.forEach((form, index) => {
       const row = form.closest('[data-measurement-row]');
       row.dataset.status = data.result; row.querySelector('[data-result]').textContent = data.result;
       tellViewer({type: 'inspection:marker-state', requirementId: row.dataset.requirementId, state: data.result});
+      const mandatoryDone = [...document.querySelectorAll('[data-measurement-row][data-mandatory="true"]')].filter(candidate => candidate.dataset.status !== 'PENDING').length;
+      const progress = document.querySelector('[data-mandatory-done]');
+      if (progress) progress.textContent = String(mandatoryDone);
       if (document.querySelector('[data-caliper-mode]')?.checked) {
         const next = forms.slice(index + 1).concat(forms.slice(0, index)).find(candidate => candidate.closest('[data-measurement-row]').dataset.status === 'PENDING');
         next?.elements.measured_value.focus();

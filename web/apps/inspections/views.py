@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 from apps.accounts.authz import has_scoped_action
 from apps.drawings.models import Drawing, DrawingRevision
 
-from .forms import CorrectionForm, InspectionLaunchForm, MeasurementForm, VisualControlForm
+from .forms import CorrectionForm, HistoryFilterForm, InspectionLaunchForm, MeasurementForm, VisualControlForm, WorkspaceQueryForm
 from .models import InspectionEye, InspectionRequirement, InspectionSession, Measurement, VisualControl
 from .selectors import get_inspection_session, list_inspection_sessions
 from .services import (InspectionError, cancel_inspection, close_inspection_eye, complete_eye_visual_phase,
@@ -30,7 +30,8 @@ def _mutable_session(user, session_id):
 
 def home(request):
     sessions = list_inspection_sessions(request.user)
-    return render(request, "inspections/home.html", {"ongoing": sessions.filter(status="IN_PROGRESS")[:10], "visual": sessions.filter(status="WAITING_VISUAL")[:10], "recent": sessions[:10], "can_create": bool(_mutation_scopes(request.user))})
+    mutation_scopes = _mutation_scopes(request.user)
+    return render(request, "inspections/home.html", {"ongoing": sessions.filter(status="IN_PROGRESS")[:10], "visual": sessions.filter(status="WAITING_VISUAL")[:10], "recent": sessions[:10], "can_create": bool(mutation_scopes), "mutation_scopes": mutation_scopes})
 
 
 def launch(request):
@@ -54,7 +55,9 @@ def launch(request):
 
 def history(request):
     sessions = list_inspection_sessions(request.user)
-    filters = {key: request.GET.get(key, "").strip() for key in ("q", "lot", "serial", "operator", "status", "result", "date_from", "date_to")}
+    filter_form = HistoryFilterForm(request.GET)
+    filter_form.is_valid()
+    filters = {key: filter_form.cleaned_data.get(key, "") for key in filter_form.fields}
     if filters["q"]: sessions = sessions.filter(Q(drawing_revision__drawing__product__tr_code__icontains=filters["q"]) | Q(drawing_revision__drawing__product__product_name__icontains=filters["q"]))
     if filters["lot"]: sessions = sessions.filter(lot_no__icontains=filters["lot"])
     if filters["serial"]: sessions = sessions.filter(serial_no__icontains=filters["serial"])
@@ -65,7 +68,9 @@ def history(request):
     if filters["date_to"]: sessions = sessions.filter(created_at__date__lte=filters["date_to"])
     query_without_page = request.GET.copy()
     query_without_page.pop("page", None)
-    return render(request, "inspections/history.html", {"page": Paginator(sessions, 25).get_page(request.GET.get("page")), "filters": filters, "statuses": InspectionSession.Status.choices, "query_without_page": query_without_page.urlencode(), "can_create": bool(_mutation_scopes(request.user))})
+    mutation_scopes = _mutation_scopes(request.user)
+    display_filters = {key: request.GET.get(key, "") for key in filter_form.fields}
+    return render(request, "inspections/history.html", {"page": Paginator(sessions, 25).get_page(request.GET.get("page")), "filters": display_filters, "filter_form": filter_form, "statuses": InspectionSession.Status.choices, "query_without_page": query_without_page.urlencode(), "can_create": bool(mutation_scopes), "mutation_scopes": mutation_scopes})
 
 
 def _detail_context(request, session, selected_eye=None):
@@ -89,7 +94,11 @@ def detail(request, session_id):
 
 def workspace(request, session_id):
     session = _mutable_session(request.user, session_id)
-    eye = get_object_or_404(session.eyes, pk=request.GET.get("eye")) if request.GET.get("eye") else None
+    query_form = WorkspaceQueryForm(request.GET)
+    if not query_form.is_valid():
+        return JsonResponse({"error": "Göz kimliği geçersiz."}, status=400)
+    eye_id = query_form.cleaned_data.get("eye")
+    eye = get_object_or_404(session.eyes, pk=eye_id) if eye_id else None
     return render(request, "inspections/workspace.html", _detail_context(request, session, eye))
 
 
