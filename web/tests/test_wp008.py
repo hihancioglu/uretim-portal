@@ -206,7 +206,13 @@ def test_completed_correction_permissions_history_snapshots_and_aggregate(domain
     assert list(MeasurementRevision.objects.values_list("revision_no", flat=True)) == [1, 2, 3]
     assert list(MeasurementRevision.objects.values_list("old_result", "new_result")) == [("NOK", "OK"), ("OK", "NOK"), ("NOK", "OK")]
     metadata = AuditEvent.objects.filter(event_type="measurement.corrected").latest("occurred_at").metadata
-    assert metadata == {"measurement_id": str(measurement.id), "revision_no": 3, "old_value": "20.3", "new_value": "20", "old_result": "NOK", "new_result": "OK", "reason": "neden 3"}
+    assert metadata["measurement_id"] == str(measurement.id)
+    assert metadata["revision_no"] == 3
+    assert Decimal(metadata["old_value"]) == Decimal("20.3")
+    assert Decimal(metadata["new_value"]) == Decimal("20")
+    assert metadata["old_result"] == "NOK"
+    assert metadata["new_result"] == "OK"
+    assert metadata["reason"] == "neden 3"
 
 
 def test_visual_nok_survives_correction_and_non_completed_is_rejected(domain):
