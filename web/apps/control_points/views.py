@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 from apps.drawings.models import DrawingRevision
-from .forms import ControlPointForm
+from .forms import ControlPointForm, CopyControlPointsForm
 from .models import ControlPoint
 from .selectors import list_active_versions_for_revision_page, list_version_history
 from .services import (
@@ -165,7 +165,26 @@ def deactivate(request, revision_id, point_id):
 def copy_to_revision(request, revision_id):
     try:
         target = _revision(revision_id)
-        source = _revision(request.POST.get("source_revision_id"))
+        form = CopyControlPointsForm(request.POST)
+        if not form.is_valid():
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "error": " ".join(
+                        message for errors in form.errors.values() for message in errors
+                    ),
+                },
+                status=400,
+            )
+        source = (
+            DrawingRevision.objects.select_related("drawing")
+            .filter(pk=form.cleaned_data["source_revision_id"])
+            .first()
+        )
+        if source is None:
+            return JsonResponse(
+                {"ok": False, "error": "Kaynak revizyon bulunamadı."}, status=404
+            )
         copied = copy_control_points_to_revision(request.user, source, target)
         return JsonResponse({"ok": True, "count": len(copied)})
     except PermissionDenied as exc:

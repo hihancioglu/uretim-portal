@@ -1,0 +1,1 @@
+{% extends 'drawings/manage/base.html' %}{% block content %}<nav><a href="{{ back_url }}">Geri dön</a></nav><h1>{{ title }}</h1><form method="post" class="card">{% csrf_token %}<p>{{ message }}</p><button class="danger" type="submit">Onayla</button> <a href="{{ back_url }}">İptal</a></form>{% endblock %}

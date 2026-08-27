@@ -7,7 +7,7 @@
 - [x] Extend the WP-005 CSS overlay contract without changing PDF.js or private content delivery.
 - [x] Add scoped server authorization, editor/detail/history UI, copy and deactivation flows.
 - [x] Add PostgreSQL-oriented tests, migration and deferred-decision record.
-- [ ] Verify clean PostgreSQL migration, complete pytest, images and GitHub Actions in CI.
+- [x] Verify clean PostgreSQL migration, complete pytest, images and GitHub Actions in CI.
 
 ## Aggregate and lifecycle
 

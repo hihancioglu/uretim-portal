@@ -105,6 +105,7 @@ jobs:
           fi
           for asset in \
             drawings/viewer.css \
+            drawings/manage.css \
             drawings/viewer.js \
             control_points/control_points.css \
             control_points/control_points.js \
@@ -133,6 +134,14 @@ jobs:
             if [[ "$asset" == *.js || "$asset" == *.mjs ]]; then
               if ! grep -Eiq '^content-type: (text|application)/javascript' "$headers"; then
                 echo "Static module has an incompatible Content-Type: asset=$asset content-type=${content_type:-<missing>}"
+                cat "$headers"
+                docker logs "$container"
+                exit 1
+              fi
+            fi
+            if [[ "$asset" == *.css ]]; then
+              if ! grep -Eiq '^content-type: text/css' "$headers"; then
+                echo "Stylesheet has an incompatible Content-Type: asset=$asset content-type=${content_type:-<missing>}"
                 cat "$headers"
                 docker logs "$container"
                 exit 1

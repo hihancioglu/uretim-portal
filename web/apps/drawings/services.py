@@ -15,6 +15,13 @@ MANAGE = "drawings.manage"
 _UNSET = object()
 
 
+def encryption_scheme_for_upload(original_name):
+    """Classify only the canonical legacy-encrypted drawing suffix."""
+    if str(original_name).casefold().endswith(".pdf.enc"):
+        return FileObject.EncryptionScheme.LEGACY_AES_GCM
+    return FileObject.EncryptionScheme.NONE
+
+
 def _text(value, field):
     if not isinstance(value, str) or not value.strip():
         raise ValidationError({field: "This field is required."})

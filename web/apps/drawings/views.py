@@ -86,6 +86,12 @@ def revision_viewer(request, revision_id):
         unsupported_reason = "Bu revizyon tarayıcıda görüntülenemiyor."
     elif not drawing_storage().exists(file_object.storage_key):
         unsupported_reason = "Teknik resim dosyası bulunamadı."
+    has_management_access = has_scoped_action(
+        request.user,
+        "drawings.manage",
+        scope_type="DRAWING",
+        scope_key=revision.drawing.scope,
+    )
     return render(
         request,
         "drawings/revision_viewer.html",
@@ -96,18 +102,22 @@ def revision_viewer(request, revision_id):
             "unsupported_reason": unsupported_reason,
             "content_url": reverse("drawings:revision-content", args=[revision.id]),
             "download_url": reverse("drawings:revision-file", args=[revision.id]),
-            "can_manage_control_points": has_scoped_action(
-                request.user,
-                "drawings.manage",
-                scope_type="DRAWING",
-                scope_key=revision.drawing.scope,
-            ),
+            "can_manage_control_points": revision.status
+            in {
+                DrawingRevision.Status.DRAFT,
+                DrawingRevision.Status.ACTIVE,
+            }
+            and has_management_access,
+            "has_management_access": has_management_access,
             "control_points_url": reverse("control_points:list", args=[revision.id]),
             "control_point_create_url": reverse(
                 "control_points:create", args=[revision.id]
             ),
             "control_point_copy_url": reverse(
                 "control_points:copy", args=[revision.id]
+            ),
+            "management_url": reverse(
+                "drawings:manage-drawing-detail", args=[revision.drawing_id]
             ),
         },
     )

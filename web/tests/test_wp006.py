@@ -4,6 +4,7 @@ import uuid
 import pytest
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
+from django.urls import reverse
 from apps.accounts.models import Role, User, UserRole
 from apps.accounts.seeding import seed_assignment_scopes, seed_authorization_baseline
 from apps.audit.models import AuditEvent
@@ -256,3 +257,44 @@ def test_overlay_contract_uses_css_normalized_coordinates_only():
     assert "drawingviewer:rendered" in js and "getBoundingClientRect" in js
     assert "clientX - rect.left" in js and "clientY - rect.top" in js
     assert "devicePixelRatio" not in js and "canvas.width" not in js
+
+
+@pytest.mark.parametrize(
+    ("payload", "status", "message"),
+    [
+        ({}, 400, "Kaynak revizyon seçilmelidir"),
+        ({"source_revision_id": "bozuk"}, 400, "geçersiz"),
+        ({"source_revision_id": str(uuid.uuid4())}, 404, "bulunamadı"),
+    ],
+)
+def test_copy_endpoint_rejects_invalid_source_as_safe_json(
+    client, domain, settings, payload, status, message
+):
+    actor, _, _, target = domain
+    settings.AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.ModelBackend"]
+    client.force_login(actor, backend="django.contrib.auth.backends.ModelBackend")
+    response = client.post(
+        reverse("control_points:copy", args=[target.id]), data=payload
+    )
+    assert response.status_code == status
+    assert response.headers["Content-Type"].startswith("application/json")
+    assert message in response.json()["error"]
+
+
+@pytest.mark.parametrize("status", ["SUPERSEDED", "WITHDRAWN"])
+def test_historical_revision_viewer_hides_mutation_controls(
+    client, domain, settings, status, tmp_path
+):
+    actor, _, revision, _ = domain
+    settings.AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.ModelBackend"]
+    settings.DRAWING_STORAGE_ROOT = str(tmp_path)
+    revision.status = status
+    revision.save(update_fields=["status"])
+    client.force_login(actor, backend="django.contrib.auth.backends.ModelBackend")
+    response = client.get(reverse("drawings:revision-viewer", args=[revision.id]))
+    html = response.content.decode()
+    assert response.status_code == 200
+    assert 'data-can-manage="false"' in html
+    assert "Kontrol noktası ekle" not in html
+    assert 'data-role="cp-form"' not in html
+    assert "Çizim Yönetimine Dön" in html
