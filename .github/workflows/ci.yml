@@ -66,7 +66,77 @@ jobs:
         run: python -m pytest -p no:django tests/legacy_profiler
       - name: Build runtime image
         working-directory: ${{ github.workspace }}
-        run: docker build --tag uretim-portal:ci .
+        run: |
+          docker build --target runtime --tag uretim-portal:ci .
+          docker build --target static-server --tag uretim-portal-static:ci .
+      - name: Verify production static and local PDF.js delivery
+        working-directory: ${{ github.workspace }}
+        run: |
+          container="uretim-portal-static-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'docker rm --force "$container" >/dev/null 2>&1 || true' EXIT
+          docker run --detach --name "$container" --add-host web:127.0.0.1 \
+            --publish 127.0.0.1::80 uretim-portal-static:ci
+          port="$(docker port "$container" 80/tcp | sed 's/.*://')"
+          ready=0
+          for attempt in $(seq 1 20); do
+            if ! docker inspect --format '{{.State.Running}}' "$container" | grep -qx true; then
+              echo "Static-server container exited during startup"
+              docker logs "$container"
+              exit 1
+            fi
+            if curl --fail --silent \
+              "http://127.0.0.1:${port}/static/drawings/viewer.css" >/dev/null
+            then
+              ready=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$ready" != "1" ]; then
+            echo "Static-server did not become ready"
+            docker logs "$container"
+            exit 1
+          fi
+          if docker inspect --format '{{range .Mounts}}{{println .Destination}}{{end}}' \
+            "$container" | grep -Fxq /data/drawings
+          then
+            echo "Private drawing storage must not be mounted in static-server"
+            exit 1
+          fi
+          for asset in \
+            drawings/viewer.css \
+            drawings/viewer.js \
+            vendor/pdfjs/6.2.108/pdf.mjs \
+            vendor/pdfjs/6.2.108/pdf.worker.mjs \
+            vendor/pdfjs/6.2.108/LICENSE
+          do
+            headers="/tmp/$(basename "$asset").headers"
+            output="/tmp/$(basename "$asset")"
+            if ! status="$(curl --silent --show-error --dump-header "$headers" --write-out '%{http_code}' \
+              --output "$output" "http://127.0.0.1:${port}/static/${asset}")"
+            then
+              echo "asset=$asset curl_failed=true"
+              cat "$headers" 2>/dev/null || true
+              docker logs "$container"
+              exit 1
+            fi
+            content_type="$(awk 'tolower($1) == "content-type:" { $1=""; sub(/^ /, ""); sub(/\r$/, ""); print; exit }' "$headers")"
+            echo "asset=$asset status=$status content-type=${content_type:-<missing>}"
+            if [ "$status" != "200" ] || [ ! -s "$output" ]; then
+              echo "Static asset failed HTTP 200/non-empty validation: $asset"
+              cat "$headers"
+              docker logs "$container"
+              exit 1
+            fi
+            if [[ "$asset" == *.mjs ]]; then
+              if ! grep -Eiq '^content-type: (text|application)/javascript' "$headers"; then
+                echo "Static module has an incompatible Content-Type: asset=$asset content-type=${content_type:-<missing>}"
+                cat "$headers"
+                docker logs "$container"
+                exit 1
+              fi
+            fi
+          done
       - name: Verify private volume is writable as runtime user
         working-directory: ${{ github.workspace }}
         run: |

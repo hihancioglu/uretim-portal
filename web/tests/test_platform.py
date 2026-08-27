@@ -44,6 +44,35 @@ def test_production_settings_fail_fast_with_clear_missing_configuration():
     assert "POSTGRES_PASSWORD" in output
 
 
+def test_build_settings_load_without_production_runtime_environment():
+    environment = os.environ.copy()
+    for name in (
+        "DJANGO_SECRET_KEY",
+        "DJANGO_ALLOWED_HOSTS",
+        "DJANGO_CSRF_TRUSTED_ORIGINS",
+        "POSTGRES_DB",
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+        "POSTGRES_HOST",
+        "POSTGRES_PORT",
+        "REDIS_URL",
+        "CELERY_BROKER_URL",
+        "CELERY_RESULT_BACKEND",
+        "DRAWING_STORAGE_ROOT",
+    ):
+        environment.pop(name, None)
+    environment["DJANGO_SETTINGS_MODULE"] = "config.settings.build"
+    result = subprocess.run(
+        [sys.executable, "manage.py", "check"],
+        cwd=settings.BASE_DIR,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_custom_user_model():
     assert settings.AUTH_USER_MODEL == "accounts.User"
     assert get_user_model()._meta.pk.get_internal_type() == "UUIDField"

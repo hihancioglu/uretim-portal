@@ -23,3 +23,7 @@ Writes use a same-directory temporary file, streaming SHA-256 calculation, and a
 The `apps.core.storage` factory is the future MinIO/S3 integration point. A future backend must retain opaque keys, private authorization, streaming, hash/size semantics, and compensation behavior; this WP deploys filesystem only.
 
 Legacy `.pdf.enc` objects remain opaque bytes. The web process has no legacy key and performs no decrypt/encrypt, parsing, conversion, rendering, malware-scan claim, or content pairing.
+
+## WP-005 production static assets
+
+The Docker `static-collector` stage creates collectstatic output and the `static-server` image copies only that output into `/srv/static`. Nginx serves `/static/` from this immutable image content. It does not mount `drawing_data`, `/data/drawings`, a media directory, or any FileObject content. Rebuild both the runtime and static-server targets when application static assets change.
