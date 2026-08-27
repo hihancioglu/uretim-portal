@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.products",
     "apps.drawings",
+    "apps.control_points",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

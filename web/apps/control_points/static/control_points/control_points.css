@@ -1,0 +1,10 @@
+.control-point-panel { padding: 1rem; width: 20rem; overflow: auto; background: #fff; border-left: 1px solid #ccd2da; }
+.control-point-panel label { display: block; margin: .55rem 0; }
+.control-point-panel input:not([type=checkbox]), .control-point-panel textarea { display: block; box-sizing: border-box; width: 100%; }
+.overlay-layer { pointer-events: auto; }
+.overlay-layer.placement-mode { cursor: crosshair; background: rgb(32 104 180 / 8%); }
+.control-point-marker { position: absolute; transform: translate(-50%, -50%); min-width: 2rem; min-height: 2rem; padding: .2rem; border: 2px solid #fff; border-radius: 50%; background: #b42318; color: #fff; font-weight: 700; box-shadow: 0 0 0 2px #6d1510; cursor: pointer; }
+.control-point-marker:focus-visible { outline: 3px solid #f9c74f; outline-offset: 3px; }
+.cp-error { color: #b42318; font-weight: 700; }
+.control-point-panel table { font-size: .75rem; border-collapse: collapse; }
+.control-point-panel td { padding: .2rem; border: 1px solid #ccd2da; }
