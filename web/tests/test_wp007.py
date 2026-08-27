@@ -148,14 +148,19 @@ def test_closed_eye_and_all_closed_completion(domain):
 
 def test_mandatory_visual_overall_nok_and_cancellation_history(domain):
     actor, _, _, revision = domain
-    point(revision, code="10")
+    point(revision, code="10", nominal="20.00000", lower="19.90000", upper="20.10000")
     point(revision, code="20", name="Boy", nominal="30.00000", lower="29.90000", upper="30.10000", sort=20)
     point(revision, code="30", name="Kontrol", mandatory=False, sort=30)
     session = start_inspection(actor=actor, session=create_inspection_draft(actor=actor, drawing_revision=revision, declared_eye_count=2, lot_no="LOT-001"))
     reqs = {r.control_point_version.measure_code:r for r in session.requirements.select_related("control_point_version")}
     eyes = list(session.eyes.all())
+    eye_2_diameter = None
     for eye in eyes:
-        save_measurement(actor=actor, eye=eye, requirement=reqs["10"], measured_value=Decimal("20.15000") if eye.eye_no == 2 else Decimal("20"))
+        measurement = save_measurement(actor=actor, eye=eye, requirement=reqs["10"], measured_value=Decimal("20.15000") if eye.eye_no == 2 else Decimal("20"))
+        if eye.eye_no == 2:
+            eye_2_diameter = measurement
+    assert eye_2_diameter is not None
+    assert eye_2_diameter.result == Measurement.Result.NOK
     with pytest.raises(InspectionError, match="Göz 1.*20"):
         finish_measurement_phase(actor=actor, session=session)
     for eye in eyes:
@@ -165,7 +170,7 @@ def test_mandatory_visual_overall_nok_and_cancellation_history(domain):
         create_visual_control(actor=actor, eye=eye, control_name="Yüzey", result=QualityResult.OK)
         complete_eye_visual_phase(actor=actor, eye=eye)
     completed = finalize_inspection(actor=actor, session=session)
-    assert completed.overall_result == "NOK"
+    assert completed.overall_result == QualityResult.NOK
     assert AuditEvent.objects.filter(event_type="inspection.completed", entity_id=str(session.pk)).exists()
     with pytest.raises(InspectionError):
         cancel_inspection(actor=actor, session=session)
