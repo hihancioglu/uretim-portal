@@ -10,6 +10,7 @@ PERMISSIONS = {
     code: name for code, name in (
         ("drawings.view", "Teknik resim görüntüleme"), ("drawings.manage", "Teknik resim/ürün yönetimi"),
         ("measurements.create", "Ölçüm girişi"), ("measurements.view_history", "Ölçüm geçmişi"),
+        ("measurements.correct", "Tamamlanmış ölçüm düzeltme"),
         ("spc.view", "SPC görüntüleme"), ("spc.adjust_limits", "SPC limit düzeltme"),
         ("msa.view", "MSA görüntüleme"), ("msa.manage", "MSA yönetimi"),
         ("molding.bind", "Kalıp bağlama"), ("molding.plan_manage", "Kalıp plan yönetimi"),
@@ -24,6 +25,7 @@ GRANTS = {
     "drawings.manage": {"admin", "technical_drawing"},
     "measurements.create": {"admin", "quality_manager", "incoming_quality", "plastic_quality"},
     "measurements.view_history": {"admin", "quality_manager", "incoming_quality", "plastic_quality", "manager"},
+    "measurements.correct": {"admin"},
     "spc.view": {"admin", "quality_manager", "manager"}, "spc.adjust_limits": {"admin"},
     "msa.view": {"admin", "quality_manager", "manager"}, "msa.manage": {"admin"},
     "molding.bind": {"admin", "production_user", "production_manager"},

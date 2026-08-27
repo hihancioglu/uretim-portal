@@ -6,8 +6,9 @@ from django.utils import timezone
 from apps.accounts.authz import require_scoped_action
 from apps.audit.services import create_audit_event
 from apps.control_points.selectors import list_active_versions_for_revision
+from apps.drawings.models import Drawing, DrawingRevision
 
-from .models import InspectionEye, InspectionRequirement, InspectionSession, Measurement, QualityResult, VisualControl
+from .models import InspectionEye, InspectionRequirement, InspectionSession, Measurement, MeasurementRevision, QualityResult, VisualControl
 
 
 class InspectionError(Exception):
@@ -61,6 +62,18 @@ def calculate_measurement_result(measured_value, lower_limit, upper_limit):
     if lower_limit > upper_limit:
         raise InspectionError("Ölçüm limitleri geçersiz.")
     return Measurement.Result.OK if lower_limit <= measured_value <= upper_limit else Measurement.Result.NOK
+
+
+@transaction.atomic
+def create_and_start_inspection(*, actor, drawing_revision, declared_eye_count=1, lot_no="", serial_no=""):
+    locked_drawing = Drawing.objects.select_for_update().get(pk=drawing_revision.drawing_id)
+    if not locked_drawing.is_active:
+        raise InspectionError("Pasif teknik resim ile kontrol başlatılamaz.")
+    locked_revision = DrawingRevision.objects.select_for_update().select_related("drawing").get(pk=drawing_revision.pk)
+    if locked_revision.status != DrawingRevision.Status.ACTIVE:
+        raise InspectionError("Yalnız aktif teknik resim revizyonu ile kontrol başlatılabilir.")
+    session = create_inspection_draft(actor=actor, drawing_revision=locked_revision, declared_eye_count=declared_eye_count, lot_no=lot_no, serial_no=serial_no)
+    return start_inspection(actor=actor, session=session)
 
 
 @transaction.atomic
@@ -235,12 +248,43 @@ def finalize_inspection(*, actor, session):
     for eye in eyes:
         if eye.is_closed and (eye.measurements.exists() or eye.visual_controls.exists()):
             raise InspectionError("Kapalı gözde kontrol verisi bulunamaz.")
-    nok = Measurement.objects.filter(eye__session=locked, result=Measurement.Result.NOK).exists() or VisualControl.objects.filter(eye__session=locked, result=QualityResult.NOK).exists()
-    locked.overall_result = QualityResult.NOK if nok else (QualityResult.OK if open_eyes else None)
+    locked.overall_result = _aggregate_result(locked)
     locked.status, locked.completed_at = InspectionSession.Status.COMPLETED, timezone.now()
     locked.save(update_fields=("overall_result", "status", "completed_at", "updated_at"))
     _audit(actor, "inspection.completed", locked, {"overall_result": locked.overall_result})
     return locked
+
+
+def _aggregate_result(session):
+    if Measurement.objects.filter(eye__session=session, result=Measurement.Result.NOK).exists() or VisualControl.objects.filter(eye__session=session, result=QualityResult.NOK).exists():
+        return QualityResult.NOK
+    return QualityResult.OK if session.eyes.filter(is_closed=False).exists() else None
+
+
+@transaction.atomic
+def correct_completed_measurement(*, actor, measurement, new_value, reason):
+    session_id = Measurement.objects.values_list("eye__session_id", flat=True).get(pk=measurement.pk)
+    session = _lock_session(InspectionSession(pk=session_id))
+    eye_id = Measurement.objects.values_list("eye_id", flat=True).get(pk=measurement.pk)
+    InspectionEye.objects.select_for_update().get(pk=eye_id, session=session)
+    current = Measurement.objects.select_for_update().get(pk=measurement.pk, eye_id=eye_id)
+    _require_status(session, InspectionSession.Status.COMPLETED)
+    require_scoped_action(actor, "measurements.correct", scope_type="DRAWING", scope_key=session.scope)
+    reason = (reason or "").strip()
+    if not reason:
+        raise InspectionError("Düzeltme nedeni zorunludur.")
+    if len(reason) > 500:
+        raise InspectionError("Düzeltme nedeni en fazla 500 karakter olabilir.")
+    value = validate_measurement_decimal(new_value)
+    result = calculate_measurement_result(value, current.lower_limit_snapshot, current.upper_limit_snapshot)
+    revision_no = (current.revisions.order_by("-revision_no").values_list("revision_no", flat=True).first() or 0) + 1
+    revision = MeasurementRevision.objects.create(measurement=current, revision_no=revision_no, old_value=current.measured_value, new_value=value, old_result=current.result, new_result=result, reason=reason, changed_by=actor, changed_by_snapshot=_actor_name(actor))
+    current.measured_value, current.result = value, result
+    current.save(update_fields=("measured_value", "result", "updated_at"))
+    session.overall_result = _aggregate_result(session)
+    session.save(update_fields=("overall_result", "updated_at"))
+    _audit(actor, "measurement.corrected", session, {"measurement_id": str(current.pk), "revision_no": revision_no, "old_value": str(revision.old_value), "new_value": str(revision.new_value), "old_result": revision.old_result, "new_result": revision.new_result, "reason": revision.reason})
+    return revision
 
 
 @transaction.atomic

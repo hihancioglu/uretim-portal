@@ -6,6 +6,7 @@
   <title>Teknik Resim — {{ revision.revision_code }}</title>
   <link rel="stylesheet" href="{% static 'drawings/viewer.css' %}">
   <link rel="stylesheet" href="{% static 'control_points/control_points.css' %}">
+  {% if inspection_overlay_url %}<link rel="stylesheet" href="{% static 'inspections/inspection_overlay.css' %}">{% endif %}
 </head>
 <body>
 <main class="viewer-layout">
@@ -26,7 +27,7 @@
       {% endfor %}
     </ul>
   </aside>
-  <section id="drawing-viewer" class="viewer-shell" data-control-points-url="{{ control_points_url }}" data-control-point-create-url="{{ control_point_create_url }}" data-control-point-copy-url="{{ control_point_copy_url }}" data-can-manage="{{ can_manage_control_points|yesno:'true,false' }}" {% if renderable %}data-content-url="{{ content_url }}" data-pdfjs-url="{% static 'vendor/pdfjs/6.2.108/pdf.mjs' %}" data-worker-url="{% static 'vendor/pdfjs/6.2.108/pdf.worker.mjs' %}"{% endif %}>
+  <section id="drawing-viewer" class="viewer-shell" data-control-points-url="{{ control_points_url }}" data-control-point-create-url="{{ control_point_create_url }}" data-control-point-copy-url="{{ control_point_copy_url }}" data-can-manage="{{ can_manage_control_points|yesno:'true,false' }}" data-inspection-overlay-url="{{ inspection_overlay_url }}" {% if renderable %}data-content-url="{{ content_url }}" data-pdfjs-url="{% static 'vendor/pdfjs/6.2.108/pdf.mjs' %}" data-worker-url="{% static 'vendor/pdfjs/6.2.108/pdf.worker.mjs' %}"{% endif %}>
     <nav class="toolbar" aria-label="PDF araçları">
       <button type="button" data-action="previous" aria-label="Önceki sayfa">‹</button>
       <label>Sayfa <input data-role="page" type="number" min="1" value="1" inputmode="numeric"></label>
@@ -92,7 +93,8 @@
 </main>
 {% if renderable %}
 <script type="module" src="{% static 'drawings/viewer.js' %}"></script>
-<script type="module" src="{% static 'control_points/control_points.js' %}"></script>
+{% if not inspection_overlay_url %}<script type="module" src="{% static 'control_points/control_points.js' %}"></script>{% endif %}
+{% if inspection_overlay_url %}<script type="module" src="{% static 'inspections/inspection_overlay.js' %}"></script>{% endif %}
 {% endif %}
 </body>
 </html>

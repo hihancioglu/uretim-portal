@@ -2,6 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class QualityResult(models.TextChoices):
@@ -132,3 +133,26 @@ class VisualControl(models.Model):
     controlled_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class MeasurementRevision(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    measurement = models.ForeignKey(Measurement, on_delete=models.PROTECT, related_name="revisions")
+    revision_no = models.PositiveIntegerField()
+    old_value = models.DecimalField(max_digits=14, decimal_places=5)
+    new_value = models.DecimalField(max_digits=14, decimal_places=5)
+    old_result = models.CharField(max_length=5, choices=Measurement.Result)
+    new_result = models.CharField(max_length=5, choices=Measurement.Result)
+    reason = models.CharField(max_length=500)
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="measurement_corrections")
+    changed_by_snapshot = models.CharField(max_length=255, blank=True)
+    changed_at = models.DateTimeField(default=timezone.now)
+    legacy_correction_id = models.CharField(max_length=255, null=True, blank=True)
+    source_computer_name = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        ordering = ("measurement_id", "revision_no")
+        constraints = [
+            models.CheckConstraint(condition=models.Q(revision_no__gte=1), name="measurement_revision_no_gte_1"),
+            models.UniqueConstraint(fields=("measurement", "revision_no"), name="measurement_revision_unique"),
+        ]

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import InspectionEye, InspectionRequirement, InspectionSession, Measurement, VisualControl
+from .models import InspectionEye, InspectionRequirement, InspectionSession, Measurement, MeasurementRevision, VisualControl
 
 
 class InspectionReadOnlyAdmin(admin.ModelAdmin):
@@ -19,3 +19,4 @@ admin.site.register(InspectionRequirement, InspectionReadOnlyAdmin)
 admin.site.register(InspectionEye, InspectionReadOnlyAdmin)
 admin.site.register(Measurement, InspectionReadOnlyAdmin)
 admin.site.register(VisualControl, InspectionReadOnlyAdmin)
+admin.site.register(MeasurementRevision, InspectionReadOnlyAdmin)
