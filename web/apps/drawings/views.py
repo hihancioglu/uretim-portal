@@ -1,5 +1,6 @@
 import re
 
+from django.core.exceptions import PermissionDenied
 from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -75,6 +76,24 @@ def _parse_range(value, size):
 
 def revision_viewer(request, revision_id):
     revision = _authorized_revision(request, revision_id)
+    inspection_overlay_url = ""
+    inspection_session_id = request.GET.get("inspection")
+    inspection_eye_id = request.GET.get("eye")
+    if inspection_session_id or inspection_eye_id:
+        from apps.inspections.models import InspectionEye, InspectionSession
+
+        session = get_object_or_404(
+            InspectionSession, pk=inspection_session_id, drawing_revision=revision
+        )
+        eye = get_object_or_404(InspectionEye, pk=inspection_eye_id, session=session)
+        can_inspect = has_scoped_action(
+            request.user, "measurements.create", scope_type="DRAWING", scope_key=session.scope
+        ) or has_scoped_action(
+            request.user, "measurements.view_history", scope_type="DRAWING", scope_key=session.scope
+        )
+        if not can_inspect:
+            raise PermissionDenied
+        inspection_overlay_url = reverse("inspections:overlay", args=[session.id, eye.id])
     revisions = revision.drawing.revisions.order_by("created_at", "id")
     file_object = revision.primary_file
     unsupported_reason = ""
@@ -102,7 +121,7 @@ def revision_viewer(request, revision_id):
             "unsupported_reason": unsupported_reason,
             "content_url": reverse("drawings:revision-content", args=[revision.id]),
             "download_url": reverse("drawings:revision-file", args=[revision.id]),
-            "can_manage_control_points": revision.status
+            "can_manage_control_points": not inspection_overlay_url and revision.status
             in {
                 DrawingRevision.Status.DRAFT,
                 DrawingRevision.Status.ACTIVE,
@@ -119,6 +138,7 @@ def revision_viewer(request, revision_id):
             "management_url": reverse(
                 "drawings:manage-drawing-detail", args=[revision.drawing_id]
             ),
+            "inspection_overlay_url": inspection_overlay_url,
         },
     )
 

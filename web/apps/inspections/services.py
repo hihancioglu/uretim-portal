@@ -6,6 +6,7 @@ from django.utils import timezone
 from apps.accounts.authz import require_scoped_action
 from apps.audit.services import create_audit_event
 from apps.control_points.selectors import list_active_versions_for_revision
+from apps.drawings.models import Drawing, DrawingRevision
 
 from .models import InspectionEye, InspectionRequirement, InspectionSession, Measurement, MeasurementRevision, QualityResult, VisualControl
 
@@ -65,9 +66,11 @@ def calculate_measurement_result(measured_value, lower_limit, upper_limit):
 
 @transaction.atomic
 def create_and_start_inspection(*, actor, drawing_revision, declared_eye_count=1, lot_no="", serial_no=""):
-    if drawing_revision.status != drawing_revision.Status.ACTIVE:
+    Drawing.objects.select_for_update().get(pk=drawing_revision.drawing_id)
+    locked_revision = DrawingRevision.objects.select_for_update().select_related("drawing").get(pk=drawing_revision.pk)
+    if locked_revision.status != DrawingRevision.Status.ACTIVE:
         raise InspectionError("Yalnız aktif teknik resim revizyonu ile kontrol başlatılabilir.")
-    session = create_inspection_draft(actor=actor, drawing_revision=drawing_revision, declared_eye_count=declared_eye_count, lot_no=lot_no, serial_no=serial_no)
+    session = create_inspection_draft(actor=actor, drawing_revision=locked_revision, declared_eye_count=declared_eye_count, lot_no=lot_no, serial_no=serial_no)
     return start_inspection(actor=actor, session=session)
 
 
@@ -278,7 +281,7 @@ def correct_completed_measurement(*, actor, measurement, new_value, reason):
     current.save(update_fields=("measured_value", "result", "updated_at"))
     session.overall_result = _aggregate_result(session)
     session.save(update_fields=("overall_result", "updated_at"))
-    _audit(actor, "measurement.corrected", session, {"measurement_id": str(current.pk), "revision_no": revision_no})
+    _audit(actor, "measurement.corrected", session, {"measurement_id": str(current.pk), "revision_no": revision_no, "old_value": str(revision.old_value), "new_value": str(revision.new_value), "old_result": revision.old_result, "new_result": revision.new_result, "reason": revision.reason})
     return revision
 
 

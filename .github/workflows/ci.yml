@@ -111,6 +111,7 @@ jobs:
             control_points/control_points.js \
             inspections/inspection.css \
             inspections/inspection.js \
+            inspections/inspection_overlay.js \
             vendor/pdfjs/6.2.108/pdf.mjs \
             vendor/pdfjs/6.2.108/pdf.worker.mjs \
             vendor/pdfjs/6.2.108/LICENSE

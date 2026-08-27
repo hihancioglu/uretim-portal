@@ -9,6 +9,7 @@ urlpatterns = [
     path("history/", views.history, name="history"),
     path("<uuid:session_id>/", views.detail, name="detail"),
     path("<uuid:session_id>/work/", views.workspace, name="work"),
+    path("<uuid:session_id>/eyes/<uuid:eye_id>/overlay/", views.inspection_overlay, name="overlay"),
     path("<uuid:session_id>/eyes/<uuid:eye_id>/requirements/<uuid:requirement_id>/save/", views.measurement_save, name="measurement-save"),
     path("<uuid:session_id>/eyes/<uuid:eye_id>/close/", views.eye_close, name="eye-close"),
     path("<uuid:session_id>/finish/", views.finish, name="finish"),

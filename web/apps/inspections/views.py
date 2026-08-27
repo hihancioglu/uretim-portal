@@ -49,7 +49,7 @@ def launch(request):
             return redirect("inspections:work", session.id)
         except InspectionError as exc:
             form.add_error(None, str(exc))
-    return render(request, "inspections/new.html", {"form": form, "revisions": revisions.order_by("drawing__product__tr_code", "revision_code")})
+    return render(request, "inspections/new.html", {"form": form, "revisions": revisions.order_by("drawing__product__tr_code", "revision_code"), "can_create": True})
 
 
 def history(request):
@@ -63,7 +63,9 @@ def history(request):
     if filters["result"]: sessions = sessions.filter(overall_result=filters["result"])
     if filters["date_from"]: sessions = sessions.filter(created_at__date__gte=filters["date_from"])
     if filters["date_to"]: sessions = sessions.filter(created_at__date__lte=filters["date_to"])
-    return render(request, "inspections/history.html", {"page": Paginator(sessions, 25).get_page(request.GET.get("page")), "filters": filters, "statuses": InspectionSession.Status.choices})
+    query_without_page = request.GET.copy()
+    query_without_page.pop("page", None)
+    return render(request, "inspections/history.html", {"page": Paginator(sessions, 25).get_page(request.GET.get("page")), "filters": filters, "statuses": InspectionSession.Status.choices, "query_without_page": query_without_page.urlencode(), "can_create": bool(_mutation_scopes(request.user))})
 
 
 def _detail_context(request, session, selected_eye=None):
@@ -76,7 +78,8 @@ def _detail_context(request, session, selected_eye=None):
     mandatory_done = sum(1 for r, m in rows if r.control_point_version.is_mandatory and m)
     can_mutate = has_scoped_action(request.user, "measurements.create", scope_type="DRAWING", scope_key=session.scope)
     can_correct = has_scoped_action(request.user, "measurements.correct", scope_type="DRAWING", scope_key=session.scope)
-    return {"session": session, "eyes": eyes, "eye": eye, "rows": rows, "mandatory_total": mandatory_total, "mandatory_done": mandatory_done, "can_mutate": can_mutate, "can_correct": can_correct}
+    measurement_groups = sorted({r.control_point_version.measurement_group for r in requirements})
+    return {"session": session, "eyes": eyes, "eye": eye, "rows": rows, "mandatory_total": mandatory_total, "mandatory_done": mandatory_done, "measurement_groups": measurement_groups, "can_mutate": can_mutate, "can_correct": can_correct, "can_create": bool(_mutation_scopes(request.user))}
 
 
 def detail(request, session_id):
@@ -88,6 +91,17 @@ def workspace(request, session_id):
     session = _mutable_session(request.user, session_id)
     eye = get_object_or_404(session.eyes, pk=request.GET.get("eye")) if request.GET.get("eye") else None
     return render(request, "inspections/workspace.html", _detail_context(request, session, eye))
+
+
+def inspection_overlay(request, session_id, eye_id):
+    session = get_object_or_404(InspectionSession, pk=session_id)
+    can_read = has_scoped_action(request.user, "measurements.create", scope_type="DRAWING", scope_key=session.scope) or has_scoped_action(request.user, "measurements.view_history", scope_type="DRAWING", scope_key=session.scope)
+    if not can_read:
+        raise PermissionDenied
+    eye = get_object_or_404(InspectionEye, pk=eye_id, session=session)
+    values = {item.requirement_id: item.result for item in eye.measurements.only("requirement_id", "result")}
+    requirements = session.requirements.select_related("control_point_version").order_by("control_point_version__sort_no", "control_point_version__measure_code", "id")
+    return JsonResponse({"markers": [{"requirement_id": str(requirement.id), "page_no": requirement.control_point_version.page_no, "x_ratio": str(requirement.control_point_version.x_ratio), "y_ratio": str(requirement.control_point_version.y_ratio), "measure_code": requirement.control_point_version.measure_code, "measure_name": requirement.control_point_version.measure_name, "is_critical": requirement.control_point_version.is_critical, "state": values.get(requirement.id, "PENDING")} for requirement in requirements]})
 
 
 def _safe_action(request, session_id, callback):
@@ -139,4 +153,4 @@ def correct(request, session_id, measurement_id):
             correct_completed_measurement(actor=request.user, measurement=measurement, **form.cleaned_data)
             return redirect("inspections:detail", session.id)
         except InspectionError as exc: form.add_error(None, str(exc))
-    return render(request, "inspections/correct.html", {"session": session, "measurement": measurement, "form": form})
+    return render(request, "inspections/correct.html", {"session": session, "measurement": measurement, "form": form, "can_create": bool(_mutation_scopes(request.user))})
