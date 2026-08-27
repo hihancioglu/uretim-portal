@@ -1,7 +1,7 @@
 # WP-006 Implementation Report
 
 **Date:** 2026-08-27  
-**Status:** `WP006_STATUS = BLOCKED`
+**Status:** `WP006_STATUS = DONE`
 
 ## Delivered
 
@@ -15,8 +15,8 @@ Migration `control_points/0001_initial.py` creates only WP-006 tables and struct
 
 Tests cover comma/point Decimal parsing, malformed/excess precision rejection, canonical tolerance/limits, UUIDs, create/revise/revise/deactivate history, stable SPC key, copy identity/version/audit behavior, real Manager read/write separation, historical read access, lifecycle denial, structural uniqueness versus deferred business uniqueness, and static normalized-coordinate invariants. The deterministic scenario uses code `10`, name `Çap`, nominal `20`, tolerances `0,10/0,20`, then revises the name/location and deactivates.
 
-## Verification and exact blocker
+## Verification
 
-Local Python/Django commands cannot run because the checkout environment lacks Django (`ModuleNotFoundError: No module named 'django'`). Consequently the migration was authored to match model state after generation was attempted, and clean PostgreSQL migration, drift, full pytest and system-check gates await CI. Docker/CI/image/static/private-volume gates also remain unverified locally. WP-006 cannot truthfully be marked DONE until one completely green GitHub Actions verify run proves all required gates.
+The post-merge verification completed successfully: Django checks and migration drift passed, a clean PostgreSQL migration and the complete pytest/legacy-profiler suites passed, both production image targets built, and the PDF.js/static/control-point/private-volume smoke gates passed. GitHub Actions verify was green before merge.
 
 The legacy tree was not modified. See `WP006_DEFERRED_DECISIONS.md` for profiling, uniqueness, display rounding, comparison, group geometry and import gates.

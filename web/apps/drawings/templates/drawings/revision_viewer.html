@@ -11,6 +11,7 @@
 <main class="viewer-layout">
   <aside class="revision-panel" aria-label="Revizyonlar">
     <h1>Revizyonlar</h1>
+    {% if has_management_access %}<a href="{{ management_url }}">Çizim Yönetimine Dön</a>{% endif %}
     <ul>
       {% for item in revisions %}
       <li class="revision revision--{{ item.status|lower }}{% if item.id == revision.id %} revision--current{% endif %}">

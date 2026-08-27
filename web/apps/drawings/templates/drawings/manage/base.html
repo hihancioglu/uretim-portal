@@ -1,0 +1,6 @@
+{% load static %}<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Teknik Resim Yönetimi{% endblock %}</title><link rel="stylesheet" href="{% static 'drawings/manage.css' %}"></head>
+<body><header><a href="{% url 'drawings:manage-home' %}"><strong>Teknik Resim Yönetimi</strong></a></header>
+<main>{% if messages %}<div class="messages">{% for message in messages %}<p class="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+{% block content %}{% endblock %}</main></body></html>

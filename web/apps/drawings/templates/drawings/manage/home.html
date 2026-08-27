@@ -1,0 +1,7 @@
+{% extends 'drawings/manage/base.html' %}{% block content %}
+<nav><span>Ürünler</span></nav><div class="heading"><h1>Teknik Resim Yönetimi</h1><a class="button" href="{% url 'drawings:manage-product-create' %}">Yeni Ürün</a></div>
+<form method="get" class="search"><label for="q">TR kodu, ürün adı veya plastik kodu</label><input id="q" name="q" value="{{ query }}"><button>Arama</button></form>
+<table><thead><tr><th>TR Kodu</th><th>Ürün Adı</th><th>Plastik Kodu</th><th>Malzeme</th><th>Renk</th><th>Durum</th><th>Teknik Resim sayısı</th><th>İşlemler</th></tr></thead><tbody>
+{% for product in page %}<tr><td>{{ product.tr_code }}</td><td>{{ product.product_name }}</td><td>{{ product.plastic_code|default:'—' }}</td><td>{{ product.material|default:'—' }}</td><td>{{ product.color_name|default:'—' }}</td><td>{{ product.is_active|yesno:'Aktif,Pasif' }}</td><td>{{ product.drawing_count }}</td><td><a href="{% url 'drawings:manage-product-detail' product.id %}">Aç</a> <a href="{% url 'drawings:manage-product-edit' product.id %}">Düzenle</a></td></tr>{% empty %}<tr><td colspan="8">Kayıt bulunamadı.</td></tr>{% endfor %}</tbody></table>
+{% if page.has_other_pages %}<nav class="pagination">{% if page.has_previous %}<a href="?q={{ query|urlencode }}&page={{ page.previous_page_number }}">Önceki</a>{% endif %}<span>{{ page.number }} / {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?q={{ query|urlencode }}&page={{ page.next_page_number }}">Sonraki</a>{% endif %}</nav>{% endif %}
+{% endblock %}

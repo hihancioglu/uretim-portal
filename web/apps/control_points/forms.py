@@ -62,3 +62,13 @@ class ControlPointForm(forms.Form):
                     self.add_error(field, "Kontrol noktası koordinatı geçersiz.")
                 data[field] = value
         return data
+
+
+class CopyControlPointsForm(forms.Form):
+    source_revision_id = forms.UUIDField(
+        required=True,
+        error_messages={
+            "required": "Kaynak revizyon seçilmelidir.",
+            "invalid": "Kaynak revizyon kimliği geçersiz.",
+        },
+    )
