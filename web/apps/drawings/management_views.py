@@ -30,6 +30,7 @@ from .services import (
     create_drawing,
     create_drawing_revision_with_file,
     deactivate_drawing,
+    encryption_scheme_for_upload,
     replace_draft_revision_file,
     update_draft_revision,
     update_drawing,
@@ -241,6 +242,7 @@ def revision_create(request, drawing_id):
                 stream=upload,
                 original_name=upload.name,
                 mime_type=upload.content_type or "",
+                encryption_scheme=encryption_scheme_for_upload(upload.name),
                 **form.cleaned_data,
             )
         except (ValidationError, ValueError, OSError) as exc:
@@ -309,6 +311,7 @@ def revision_replace_file(request, revision_id):
                 stream=upload,
                 original_name=upload.name,
                 mime_type=upload.content_type or "",
+                encryption_scheme=encryption_scheme_for_upload(upload.name),
             )
         except (ValidationError, ValueError, OSError):
             form.add_error("drawing_file", "Dosya değiştirilemedi veya desteklenmiyor.")

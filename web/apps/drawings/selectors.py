@@ -13,7 +13,9 @@ def list_products_for_management(*, actor, query=""):
         if query
         else list_products(actor=actor, active_only=False)
     )
-    return products.annotate(drawing_count=Count("drawings", distinct=True))
+    return products.annotate(drawing_count=Count("drawings", distinct=True)).order_by(
+        "tr_code", "product_name", "id"
+    )
 
 
 def list_drawings_for_product(*, actor, product):

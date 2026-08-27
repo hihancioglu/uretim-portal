@@ -11,7 +11,14 @@ Inherited WP-006 cleanup marks its completed CI gates accurately. Copy-source UU
 
 ## Verification status
 
-Final local/PostgreSQL/image verification and the new GitHub Actions run are pending. This report must remain BLOCKED until every definition-of-done gate is actually green; the exact remaining blocker is the uncompleted final CI run.
+GitHub Actions run #34 passed the pre-hardening baseline: Django check, migration
+drift, clean PostgreSQL migrations, 113 Django tests, 3 legacy-profiler tests,
+both Docker images, PDF.js/control-point static smoke and the private-volume
+smoke. The final hardening patch adds deterministic pagination, canonical
+`.pdf.enc` metadata, pilot lifecycle tests and the `drawings/manage.css` HTTP
+smoke. Its new GitHub Actions run is still pending. This report must remain
+BLOCKED until that new run is fully green; that uncompleted final verify run is
+the exact remaining blocker.
 
 ## Gates preserved
 
