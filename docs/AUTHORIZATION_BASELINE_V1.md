@@ -23,6 +23,7 @@ This baseline implements `DOMAIN_RULES_V1.md` AUTH-002–AUTH-007. Legacy eviden
 | `drawings.view` | drawing-scoped roles below |
 | `measurements.create` | Admin, Kalite Kontrol Yöneticisi, Giriş Kalite, Plastikhane Kalite |
 | `measurements.view_history` | preceding roles + Yönetici |
+| `measurements.correct` | Admin only |
 | `spc.view`; `msa.view` | Admin, Kalite Kontrol Yöneticisi, Yönetici |
 | `spc.adjust_limits`; `msa.manage` | Admin only |
 | `molding.bind` | Admin, Üretim Kullanıcısı, Üretim Yöneticisi |
