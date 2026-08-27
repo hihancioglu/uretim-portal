@@ -21,6 +21,12 @@ from apps.inspections.services import (InspectionError, close_inspection_eye,
 from tests.test_wp007 import actor_for, domain, point
 
 pytestmark = pytest.mark.django_db
+BACKEND = "django.contrib.auth.backends.ModelBackend"
+
+
+@pytest.fixture(autouse=True)
+def test_auth_backend(settings):
+    settings.AUTHENTICATION_BACKENDS = [BACKEND]
 
 
 def complete(actor, revision, *, measured="20", visual=QualityResult.OK):
@@ -31,7 +37,7 @@ def complete(actor, revision, *, measured="20", visual=QualityResult.OK):
     finish_measurement_phase(actor=actor, session=session)
     control = create_visual_control(actor=actor, eye=eye, control_name="Yüzey", result=visual)
     complete_eye_visual_phase(actor=actor, eye=eye)
-    finalize_inspection(actor=actor, session=session)
+    session = finalize_inspection(actor=actor, session=session)
     return session, eye, measurement, control
 
 
@@ -40,14 +46,14 @@ def test_launcher_is_scope_filtered_and_active_only(client, domain):
     plastic = actor_for("plastic_quality", "plastic-wp8")
     incoming = actor_for("incoming_quality", "incoming-wp8")
     point(revision)
-    client.force_login(plastic)
+    client.force_login(plastic, backend=BACKEND)
     response = client.get(reverse("inspections:new"))
     assert response.status_code == 200 and str(revision.id) in response.content.decode()
-    client.force_login(incoming)
+    client.force_login(incoming, backend=BACKEND)
     assert str(revision.id) not in client.get(reverse("inspections:new")).content.decode()
     revision.status = revision.Status.WITHDRAWN
     revision.save(update_fields=("status",))
-    client.force_login(plastic)
+    client.force_login(plastic, backend=BACKEND)
     assert str(revision.id) not in client.get(reverse("inspections:new")).content.decode()
 
 
@@ -85,7 +91,7 @@ def test_measurement_endpoint_upserts_and_rejects_cross_session(client, domain):
     first = create_and_start_inspection(actor=actor, drawing_revision=revision)
     second = create_and_start_inspection(actor=actor, drawing_revision=revision)
     eye, requirement = first.eyes.get(), first.requirements.get()
-    client.force_login(actor)
+    client.force_login(actor, backend=BACKEND)
     url = reverse("inspections:measurement-save", args=[first.id, eye.id, requirement.id])
     first_response = client.post(url, {"measured_value": "20,1", "note": "ilk"})
     second_response = client.post(url, {"measured_value": "20.0", "note": "son"})
@@ -102,7 +108,7 @@ def test_measurement_rejected_for_closed_and_waiting_visual(client, domain):
     closed = create_and_start_inspection(actor=actor, drawing_revision=revision)
     eye, requirement = closed.eyes.get(), closed.requirements.get()
     close_inspection_eye(actor=actor, eye=eye)
-    client.force_login(actor)
+    client.force_login(actor, backend=BACKEND)
     url = reverse("inspections:measurement-save", args=[closed.id, eye.id, requirement.id])
     assert client.post(url, {"measured_value": "20"}).status_code == 409
     waiting = create_and_start_inspection(actor=actor, drawing_revision=revision)
@@ -144,7 +150,7 @@ def test_manager_history_only_scope_and_pagination_filter_contract(client, domai
     manager = actor_for("manager", "manager-wp8")
     for number in range(27):
         InspectionSession.objects.create(drawing_revision=revision, scope="PLASTIC", operator=actor, operator_name_snapshot="Operator", lot_no=f"LOT-{number}")
-    client.force_login(manager)
+    client.force_login(manager, backend=BACKEND)
     response = client.get(reverse("inspections:history"), {"q": "TR", "lot": "LOT", "status": "DRAFT", "page": 2})
     body = response.content.decode()
     assert response.status_code == 200 and "Yeni Kontrol" not in body
@@ -162,7 +168,7 @@ def test_history_scope_isolation(client, domain):
     incoming_revision = DrawingRevision.objects.create(drawing=drawing, revision_code="A", primary_file=file_object, status="ACTIVE")
     InspectionSession.objects.create(drawing_revision=plastic_revision, scope="PLASTIC", operator=plastic, operator_name_snapshot="Plastic")
     InspectionSession.objects.create(drawing_revision=incoming_revision, scope="INCOMING_QUALITY", operator=incoming, operator_name_snapshot="Incoming")
-    client.force_login(plastic)
+    client.force_login(plastic, backend=BACKEND)
     body = client.get(reverse("inspections:history")).content.decode()
     assert "TR — P" in body and "INCOMING-SECRET" not in body
 
@@ -173,7 +179,7 @@ def test_frozen_overlay_survives_definition_revision(client, domain):
     session = create_and_start_inspection(actor=actor, drawing_revision=revision)
     author = actor_for("technical_drawing", "overlay-author")
     revise_control_point(actor=author, control_point=old.control_point, drawing_revision=revision, data={"measure_code":"99", "measure_name":"Yeni", "nominal":Decimal("21"), "lower_tolerance":Decimal(".1"), "upper_tolerance":Decimal(".1"), "unit":"mm", "page_no":2, "x_ratio":Decimal(".5"), "y_ratio":Decimal(".6"), "is_mandatory":True, "measurement_group":"Yeni", "sample_frequency":"Her", "is_critical":False, "sort_no":99, "change_reason":"test"})
-    client.force_login(actor)
+    client.force_login(actor, backend=BACKEND)
     payload = client.get(reverse("inspections:overlay", args=[session.id, session.eyes.get().id])).json()["markers"][0]
     assert payload == {"requirement_id": str(session.requirements.get().id), "page_no": 1, "x_ratio": "0.250000", "y_ratio": "0.750000", "measure_code": "10", "measure_name": "Dış Çap", "is_critical": True, "state": "PENDING"}
 
@@ -199,7 +205,7 @@ def test_completed_correction_permissions_history_snapshots_and_aggregate(domain
     assert {name: getattr(measurement, name) for name in snapshot_fields} == snapshots
     assert list(MeasurementRevision.objects.values_list("revision_no", flat=True)) == [1, 2, 3]
     assert list(MeasurementRevision.objects.values_list("old_result", "new_result")) == [("NOK", "OK"), ("OK", "NOK"), ("NOK", "OK")]
-    metadata = AuditEvent.objects.filter(event_type="measurement.corrected").latest("created_at").metadata
+    metadata = AuditEvent.objects.filter(event_type="measurement.corrected").latest("occurred_at").metadata
     assert metadata == {"measurement_id": str(measurement.id), "revision_no": 3, "old_value": "20.3", "new_value": "20", "old_result": "NOK", "new_result": "OK", "reason": "neden 3"}
 
 
@@ -232,7 +238,7 @@ def test_overlay_css_is_isolated_and_loaded_only_in_overlay_viewer(client, domai
     point(revision)
     session = create_and_start_inspection(actor=actor, drawing_revision=revision)
     eye = session.eyes.get()
-    client.force_login(actor)
+    client.force_login(actor, backend=BACKEND)
     normal = client.get(reverse("drawings:revision-viewer", args=[revision.id])).content.decode()
     overlay = client.get(reverse("drawings:revision-viewer", args=[revision.id]), {"inspection": session.id, "eye": eye.id}).content.decode()
     assert "inspections/inspection_overlay.css" not in normal
@@ -259,7 +265,7 @@ def test_manager_active_session_link_is_read_only_detail(client, domain):
     point(revision)
     session = create_and_start_inspection(actor=actor, drawing_revision=revision)
     manager = actor_for("manager", "manager-active-wp8")
-    client.force_login(manager)
+    client.force_login(manager, backend=BACKEND)
     body = client.get(reverse("inspections:history")).content.decode()
     assert reverse("inspections:detail", args=[session.id]) in body
     assert reverse("inspections:work", args=[session.id]) not in body
@@ -269,7 +275,7 @@ def test_malformed_workspace_and_viewer_queries_never_500(client, domain):
     actor, _, _, revision = domain
     point(revision)
     session = create_and_start_inspection(actor=actor, drawing_revision=revision)
-    client.force_login(actor)
+    client.force_login(actor, backend=BACKEND)
     assert client.get(reverse("inspections:work", args=[session.id]), {"eye": "not-a-uuid"}).status_code == 400
     viewer = reverse("drawings:revision-viewer", args=[revision.id])
     assert client.get(viewer, {"inspection": "not-a-uuid", "eye": "also-bad"}).status_code == 400
@@ -279,7 +285,7 @@ def test_malformed_workspace_and_viewer_queries_never_500(client, domain):
 def test_invalid_history_filters_render_safely(client, domain):
     actor, _, _, _ = domain
     manager = actor_for("manager", "manager-invalid-filter-wp8")
-    client.force_login(manager)
+    client.force_login(manager, backend=BACKEND)
     response = client.get(reverse("inspections:history"), {"date_from": "not-a-date", "date_to": "2026-99-99", "status": "UNKNOWN", "result": "MAYBE"})
     assert response.status_code == 200
     assert "Geçersiz filtreler yok sayıldı" in response.content.decode()
@@ -300,6 +306,6 @@ def test_overlay_endpoint_rejects_unauthorized_scope(client, domain):
     point(revision)
     session = create_and_start_inspection(actor=actor, drawing_revision=revision)
     incoming = actor_for("incoming_quality", "incoming-overlay-denied-wp8")
-    client.force_login(incoming)
+    client.force_login(incoming, backend=BACKEND)
     response = client.get(reverse("inspections:overlay", args=[session.id, session.eyes.get().id]))
     assert response.status_code == 403
