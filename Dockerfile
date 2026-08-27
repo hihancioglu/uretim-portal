@@ -29,6 +29,10 @@ RUN DJANGO_SETTINGS_MODULE=config.settings.build \
     python manage.py collectstatic --noinput
 
 FROM nginx:1.29.2-alpine AS static-server
+RUN sed -E -i \
+    's#application/javascript([[:space:]]+)js;#application/javascript\1js mjs;#' \
+    /etc/nginx/mime.types \
+    && grep -Eq 'application/javascript[[:space:]]+js mjs;' /etc/nginx/mime.types
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=static-collector /app/web/staticfiles /srv/static
 

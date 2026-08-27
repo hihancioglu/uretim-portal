@@ -111,13 +111,30 @@ jobs:
             vendor/pdfjs/6.2.108/LICENSE
           do
             headers="/tmp/$(basename "$asset").headers"
-            status="$(curl --fail --silent --show-error --dump-header "$headers" --write-out '%{http_code}' \
-              --output "/tmp/$(basename "$asset")" "http://127.0.0.1:${port}/static/${asset}"
-            )"
-            test "$status" = "200"
-            test -s "/tmp/$(basename "$asset")"
+            output="/tmp/$(basename "$asset")"
+            if ! status="$(curl --silent --show-error --dump-header "$headers" --write-out '%{http_code}' \
+              --output "$output" "http://127.0.0.1:${port}/static/${asset}")"
+            then
+              echo "asset=$asset curl_failed=true"
+              cat "$headers" 2>/dev/null || true
+              docker logs "$container"
+              exit 1
+            fi
+            content_type="$(awk 'tolower($1) == "content-type:" { $1=""; sub(/^ /, ""); sub(/\r$/, ""); print; exit }' "$headers")"
+            echo "asset=$asset status=$status content-type=${content_type:-<missing>}"
+            if [ "$status" != "200" ] || [ ! -s "$output" ]; then
+              echo "Static asset failed HTTP 200/non-empty validation: $asset"
+              cat "$headers"
+              docker logs "$container"
+              exit 1
+            fi
             if [[ "$asset" == *.mjs ]]; then
-              grep -Eiq '^content-type: (text|application)/javascript' "$headers"
+              if ! grep -Eiq '^content-type: (text|application)/javascript' "$headers"; then
+                echo "Static module has an incompatible Content-Type: asset=$asset content-type=${content_type:-<missing>}"
+                cat "$headers"
+                docker logs "$container"
+                exit 1
+              fi
             fi
           done
       - name: Verify private volume is writable as runtime user
