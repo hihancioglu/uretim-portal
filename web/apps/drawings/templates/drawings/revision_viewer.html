@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Teknik Resim — {{ revision.revision_code }}</title>
   <link rel="stylesheet" href="{% static 'drawings/viewer.css' %}">
+  <link rel="stylesheet" href="{% static 'control_points/control_points.css' %}">
 </head>
 <body>
 <main class="viewer-layout">
@@ -24,7 +25,7 @@
       {% endfor %}
     </ul>
   </aside>
-  <section id="drawing-viewer" class="viewer-shell" {% if renderable %}data-content-url="{{ content_url }}" data-pdfjs-url="{% static 'vendor/pdfjs/6.2.108/pdf.mjs' %}" data-worker-url="{% static 'vendor/pdfjs/6.2.108/pdf.worker.mjs' %}"{% endif %}>
+  <section id="drawing-viewer" class="viewer-shell" data-control-points-url="{{ control_points_url }}" data-control-point-create-url="{{ control_point_create_url }}" data-control-point-copy-url="{{ control_point_copy_url }}" data-can-manage="{{ can_manage_control_points|yesno:'true,false' }}" {% if renderable %}data-content-url="{{ content_url }}" data-pdfjs-url="{% static 'vendor/pdfjs/6.2.108/pdf.mjs' %}" data-worker-url="{% static 'vendor/pdfjs/6.2.108/pdf.worker.mjs' %}"{% endif %}>
     <nav class="toolbar" aria-label="PDF araçları">
       <button type="button" data-action="previous" aria-label="Önceki sayfa">‹</button>
       <label>Sayfa <input data-role="page" type="number" min="1" value="1" inputmode="numeric"></label>
@@ -38,22 +39,59 @@
       <button type="button" data-action="fit-page">Sayfaya sığdır</button>
       <button type="button" data-action="fit-width">Genişliğe sığdır</button>
       <a href="{{ download_url }}">İndir</a>
+      {% if can_manage_control_points %}<button type="button" data-cp-action="place">Kontrol noktası ekle</button>{% endif %}
     </nav>
     {% if renderable %}
     <div class="viewer-status" data-role="status" role="status">Teknik resim yükleniyor…</div>
     <div class="viewport" data-role="viewport">
       <div class="page-stage" data-role="page-stage">
         <canvas data-role="canvas" aria-label="PDF sayfası"></canvas>
-        <div class="overlay-layer" data-role="overlay" aria-hidden="true"></div>
+        <div class="overlay-layer" data-role="overlay" aria-label="Kontrol noktaları"></div>
       </div>
     </div>
     {% else %}
     <div class="viewer-error" role="alert">{{ unsupported_reason }}</div>
     {% endif %}
   </section>
+  <aside class="control-point-panel" data-role="control-point-panel">
+    <h2>Kontrol noktası</h2>
+    <p data-role="cp-message">Bir işaret seçin.</p>
+    <div data-role="cp-details"></div>
+    {% if can_manage_control_points %}
+    {% if revision.status == 'DRAFT' %}
+    <form data-role="cp-copy-form">{% csrf_token %}
+      <label>Kaynak revizyon
+        <select name="source_revision_id" required>
+          <option value="">Seçin</option>
+          {% for item in revisions %}{% if item.id != revision.id %}<option value="{{ item.id }}">{{ item.revision_code }} — {{ item.get_status_display }}</option>{% endif %}{% endfor %}
+        </select>
+      </label>
+      <button type="submit">Önceki revizyondaki kontrol noktalarını kopyala</button>
+    </form>
+    {% endif %}
+    <form data-role="cp-form" hidden>{% csrf_token %}
+      <input type="hidden" name="page_no"><input type="hidden" name="x_ratio"><input type="hidden" name="y_ratio">
+      <label>Ölçü kodu <input name="measure_code" required maxlength="120"></label>
+      <label>Ölçü adı <input name="measure_name" required maxlength="255"></label>
+      <label>Nominal <input name="nominal" required inputmode="decimal"></label>
+      <label>Alt tolerans <input name="lower_tolerance" required inputmode="decimal"></label>
+      <label>Üst tolerans <input name="upper_tolerance" required inputmode="decimal"></label>
+      <label>Birim <input name="unit" value="mm"></label>
+      <label>Ölçüm grubu <input name="measurement_group" value="Genel"></label>
+      <label>Örnekleme sıklığı <input name="sample_frequency" value="Her Kontrol"></label>
+      <label>Sıra <input name="sort_no" type="number" value="0"></label>
+      <label><input name="is_mandatory" type="checkbox" checked> Zorunlu</label>
+      <label><input name="is_critical" type="checkbox"> Kritik</label>
+      <label>Değişiklik nedeni <textarea name="change_reason"></textarea></label>
+      <small data-role="cp-coordinate"></small>
+      <button type="submit">Kaydet</button><button type="button" data-cp-action="cancel">İptal</button>
+    </form>
+    {% endif %}
+  </aside>
 </main>
 {% if renderable %}
 <script type="module" src="{% static 'drawings/viewer.js' %}"></script>
+<script type="module" src="{% static 'control_points/control_points.js' %}"></script>
 {% endif %}
 </body>
 </html>

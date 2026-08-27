@@ -89,7 +89,7 @@ def test_viewer_uses_uuid_safe_metadata_and_local_overlay(client, drawing_data, 
     assert "cdnjs" not in html and "jsdelivr" not in html and "unpkg" not in html
     assert "/static/vendor/pdfjs/6.2.108/pdf.mjs" in html
     assert "/static/vendor/pdfjs/6.2.108/pdf.worker.mjs" in html
-    assert "control-point" not in html.casefold()
+    assert "/static/control_points/control_points.js" in html
 
 
 @pytest.mark.parametrize(

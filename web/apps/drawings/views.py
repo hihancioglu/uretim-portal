@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils.http import content_disposition_header
 
-from apps.accounts.authz import require_scoped_action
+from apps.accounts.authz import has_scoped_action, require_scoped_action
 from apps.core.storage import drawing_storage
 
 from .models import DrawingRevision
@@ -96,6 +96,19 @@ def revision_viewer(request, revision_id):
             "unsupported_reason": unsupported_reason,
             "content_url": reverse("drawings:revision-content", args=[revision.id]),
             "download_url": reverse("drawings:revision-file", args=[revision.id]),
+            "can_manage_control_points": has_scoped_action(
+                request.user,
+                "drawings.manage",
+                scope_type="DRAWING",
+                scope_key=revision.drawing.scope,
+            ),
+            "control_points_url": reverse("control_points:list", args=[revision.id]),
+            "control_point_create_url": reverse(
+                "control_points:create", args=[revision.id]
+            ),
+            "control_point_copy_url": reverse(
+                "control_points:copy", args=[revision.id]
+            ),
         },
     )
 
@@ -126,17 +139,23 @@ def revision_content(request, revision_id):
             response["X-Content-Type-Options"] = "nosniff"
             return response
         length = end - start + 1
-        body = () if request.method == "HEAD" else storage.iter_range(
-            file_object.storage_key, start, length
+        body = (
+            ()
+            if request.method == "HEAD"
+            else storage.iter_range(file_object.storage_key, start, length)
         )
-        response = StreamingHttpResponse(body, status=206, content_type="application/pdf")
+        response = StreamingHttpResponse(
+            body, status=206, content_type="application/pdf"
+        )
         return _content_headers(
             response,
             size=length,
             filename=filename,
             content_range=f"bytes {start}-{end}/{size}",
         )
-    body = () if request.method == "HEAD" else storage.iter_range(file_object.storage_key)
+    body = (
+        () if request.method == "HEAD" else storage.iter_range(file_object.storage_key)
+    )
     response = StreamingHttpResponse(body, content_type="application/pdf")
     return _content_headers(response, size=size, filename=filename)
 
